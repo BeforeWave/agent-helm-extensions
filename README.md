@@ -42,6 +42,12 @@ Agent Helm Extension 把这两个上下文连接起来。
 这样，浏览器中的对话不再与实际发生在本地的工作割裂。
 
 ## 引导式配置
+<img width="918" height="840" alt="20260831234952" src="https://github.com/user-attachments/assets/698ccbdc-427a-4b21-9586-449c5e1755eb" />
+
+<img width="830" height="1802" alt="image" src="https://github.com/user-attachments/assets/9e502dfc-b226-4c56-b784-192721fd2b1c" />
+<img width="1988" height="1934" alt="20260831234846" src="https://github.com/user-attachments/assets/e135e681-fc2a-410d-8a05-a77e02be54ba" />
+<img width="2132" height="1910" alt="20260831234923" src="https://github.com/user-attachments/assets/609da667-b89f-4b6d-99c8-35bcbcea1dff" />
+
 
 ### 推荐：从 Chrome Extension 开始
 
