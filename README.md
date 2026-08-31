@@ -141,7 +141,7 @@ Agent Helm Chrome Extension 当前提供三个主要浏览器界面。
 - Local Agent LSP
 - Tunnel 状态
 
-<img width="918" height="840" alt="20260831234952" src="https://github.com/user-attachments/assets/698ccbdc-427a-4b21-9586-449c5e1755eb" />
+<img width="1414" height="1330" alt="image" src="https://github.com/user-attachments/assets/72332c3f-0150-4524-97f8-b6ef855e3a45" />
 
 
 
