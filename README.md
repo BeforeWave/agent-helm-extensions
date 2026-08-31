@@ -1,13 +1,15 @@
 # Agent Helm Extensions
 
-> **Connect the ChatGPT interfaces you already use to the real local work happening through Agent Helm.**
+[English](./README.en.md)
 
-**Agent Helm Extensions** provides browser and other user-facing integrations for [Agent Helm](https://github.com/BeforeWave/agent-helm).
+> **让你继续在 ChatGPT 里工作，同时看见并管理 Agent Helm 正在本地完成的真实工作。**
 
-The first integration is the Agent Helm Chrome Extension. It connects the active ChatGPT browser experience with Agent Helm running locally on your machine.
+**Agent Helm Extensions** 是 [Agent Helm](https://github.com/BeforeWave/agent-helm) 的浏览器与用户界面集成项目。
+
+第一个集成是 **Agent Helm Chrome Extension**。它把你正在使用的 ChatGPT 浏览器体验，与本机运行的 Agent Helm 连接起来。
 
 ```text
-                    ChatGPT in Chrome
+                    Chrome 中的 ChatGPT
                            │
                            ▼
                   Agent Helm Extension
@@ -21,62 +23,161 @@ The first integration is the Agent Helm Chrome Extension. It connects the active
                          History
 ```
 
-## ChatGPT in the browser, connected to real local work
+## 让浏览器里的 ChatGPT 看见真实的本地工作
 
-A task can begin inside a ChatGPT conversation while the actual engineering work happens in a local Workspace.
+一个任务可以从 ChatGPT 对话开始，但真正的工程工作发生在本地 Workspace 中。
 
-The extension connects those two contexts.
+Agent Helm Extension 把这两个上下文连接起来。
 
-It can surface:
+你可以在浏览器里看到：
 
-- Agent Helm connection state
-- local Workspaces
-- available local capabilities
-- local coding agents
+- Agent Helm 连接状态
+- 本地 Workspaces
+- 当前可用的能力
+- 本地 Coding Agents
 - Work History
-- associated ChatGPT Conversations
-- delegated Subagent Sessions
+- 关联的 ChatGPT Conversations
+- 已委派的 Subagent Sessions
 
-This gives the browser visibility into the real local work behind the conversation.
+这样，浏览器中的对话不再与实际发生在本地的工作割裂。
 
-## Guided setup
+## 引导式配置
 
-Browser integration requires a few local and browser-side setup steps, but you should not need to research or assemble those steps yourself.
+### 推荐：从 Chrome Extension 开始
 
-**Agent Helm detects what is missing and guides you through the required installation, connection, and authorization steps.**
+**Chrome Extension 本身就是 Agent Helm 的一个安装入口，而不只是安装完成后的最后一步。**
 
-Install Agent Helm:
+你可以先安装 Agent Helm Chrome Extension。Extension 会检查本机是否已经具备 Agent Helm 运行环境。
+
+如果本机还没有 Agent Helm，Extension 会继续引导你完成需要的安装和配置，包括：
+
+- Agent Helm Core
+- 必要的 Node.js runtime
+- Chrome Native Messaging 注册
+- Serena / Semantic Code Intelligence
+- OpenAI tunnel-client
+- Secure MCP Tunnel 配置
+- ChatGPT Developer Mode / Connector 配置
+
+在支持自动安装的步骤上，Agent Helm 会直接完成安装；需要用户授权或前往外部页面的步骤，则会给出官方入口和明确的下一步操作。
+
+**你不需要先离开浏览器，自己研究如何把整套本地环境准备好。**
+
+```text
+Install Chrome Extension
+        │
+        ▼
+检测本地 Agent Helm
+        │
+        ├── 已安装 ───────────────┐
+        │                         │
+        └── 未安装                │
+              │                   │
+              ▼                   │
+       引导安装 Agent Helm         │
+              │                   │
+              ▼                   │
+     引导依赖 / Tunnel / ChatGPT   │
+              │                   │
+              └───────────────────┘
+                        │
+                        ▼
+                       Ready
+```
+
+### 也可以完全从命令行开始
+
+如果你更喜欢 Terminal，可以独立安装并配置 Agent Helm：
 
 ```bash
 npm install -g agent-helm
-```
-
-Configure Agent Helm itself:
-
-```bash
 agent-helm setup
+agent-helm setup chrome
 ```
 
-Then configure Chrome:
+### 已经安装并配置过 Agent Helm？
+
+直接进入 Chrome 集成配置即可：
 
 ```bash
 agent-helm setup chrome
 ```
 
-The Chrome setup continues the same guided flow for browser-specific installation, Native Messaging, and user-authorized connection steps. When something requires an external action, the guide gives you the official destination and the exact next step instead of sending you off to search for documentation.
+两条入口最终进入同一套 Agent Helm Setup 流程。
 
-The guided connection currently uses **OpenAI tunnel-client** as Agent Helm's default Secure MCP Tunnel backend. Semantic code intelligence and sandboxed execution remain Agent Helm Core responsibilities; see [Agent Helm](https://github.com/BeforeWave/agent-helm) for the current backends and security model.
+如果某一步必须跳转到外部页面完成，Agent Helm 会直接提供官方入口和下一步操作，而不是让你自己搜索第三方文档。
 
-After setup, normal runtime lifecycle stays simple:
+当前连接栈中：
+
+- Agent Helm 使用 **OpenAI tunnel-client** 作为默认 Secure MCP Tunnel backend
+- 浏览器 Extension 与本地 Agent Helm Core 之间通过 **Chrome Native Messaging** 通信
+- 语义代码理解和 sandboxed execution 由 Agent Helm Core 提供
+
+关于当前使用的 Serena、Anthropic Sandbox Runtime、OpenAI tunnel-client 以及完整安全模型，请参阅 [Agent Helm](https://github.com/BeforeWave/agent-helm)。
+
+配置完成后，日常生命周期保持简单：
 
 ```bash
 agent-helm start
 agent-helm status
 ```
 
+## 浏览器体验
+
+Agent Helm Chrome Extension 当前提供三个主要浏览器界面。
+
+### Popup
+
+点击 Chrome 工具栏中的 Agent Helm 图标，可以快速查看和控制：
+
+- Agent Helm Service 状态
+- Understand / Code / Command 能力
+- 可用的 Coding Agents
+- Local Agent LSP
+- Tunnel 状态
+
+<!-- Screenshot: Agent Helm popup -->
+
+> _截图待补：Agent Helm Popup 与能力控制。_
+
+### Side Panel
+
+Side Panel 是浏览器里的主要工作视图。
+
+你可以：
+
+- 查看 Work History
+- 按 Workspace 筛选本地工作
+- 添加或切换 Workspace
+- 查看 ChatGPT 直接完成的工作
+- 查看 Subagent Sessions
+- 在不同 Work 之间切换
+
+<!-- Screenshot: Agent Helm Work History side panel -->
+
+> _截图待补：Chrome Side Panel 中按 Workspace 查看 Work History。_
+
+### Work Detail
+
+Work Detail 用来查看一项工作的完整上下文，包括：
+
+- ChatGPT Direct Work
+- Subagent Work
+- 活动时间线
+- 执行动作
+- 关联的 ChatGPT Conversations
+- Workspace 信息
+- 初始 requirement 与后续工作上下文
+
+当当前标签页打开的是一个 `chatgpt.com` Conversation 时，Extension 可以识别当前 Conversation，并将它与对应的 Agent Helm Work History 关联。
+
+<!-- Screenshot: Agent Helm Work Detail -->
+
+> _截图待补：Work Detail、ChatGPT 活动、Subagent Sessions 与关联 Conversation。_
+
 ## Work History
 
-The extension makes it easier to move between a ChatGPT conversation and the local work associated with it.
+Agent Helm Extension 让你更容易在一个 ChatGPT Conversation 和它背后的本地工作之间来回切换。
 
 ```text
 ChatGPT Conversation
@@ -87,17 +188,24 @@ ChatGPT Conversation
 Direct Work  Subagent Sessions
 ```
 
-You can answer practical questions such as:
+你可以直接回答这些实际问题：
 
-- Which local work belongs to this conversation?
-- Which Workspace / Worktree was used?
-- Was the task handled directly or delegated?
-- Which Agent Session should I reopen?
-- What happened after I left the conversation?
+- 这个 Conversation 对应的是哪一项本地工作？
+- 使用了哪个 Workspace / Worktree？
+- 这个任务是 ChatGPT 直接完成的，还是委派给了 Subagent？
+- 应该重新打开哪个 Agent Session？
+- 我离开这个 Conversation 之后，本地又发生了什么？
+- 一个 Work 目前关联了哪些 ChatGPT Conversations？
 
-## The browser is not the execution boundary
+Work History 的目标不是简单保存一份聊天记录。
 
-The Chrome extension is an interaction and presentation layer. It is not a privileged local execution runtime.
+它连接的是：
+
+**Conversation → Workspace → Direct Work → Subagent Sessions → 实际执行历史**
+
+## 浏览器不是执行边界
+
+Chrome Extension 是交互和展示层，不是拥有本地高权限的执行 runtime。
 
 ```text
 ChatGPT
@@ -119,13 +227,15 @@ Agent Helm
      Authorized Local Workspace
 ```
 
-Filesystem access, command execution, environment access, networking, semantic capabilities, and Agent delegation remain controlled by Agent Helm.
+文件系统访问、命令执行、环境变量、网络访问、Semantic Capabilities 和 Agent Delegation 仍然全部由 Agent Helm 控制。
 
-Installing the extension therefore does not give the browser unrestricted access to the local machine.
+因此，安装 Chrome Extension 并不等于把本机的无限制访问权限交给浏览器。
 
-For the full local security model, see [Agent Helm](https://github.com/BeforeWave/agent-helm).
+完整的本地 capability boundary、安全模型与 sandbox enforcement 机制，请参阅 [Agent Helm](https://github.com/BeforeWave/agent-helm)。
 
-## How it connects
+## 它是如何连接的
+
+浏览器与 Agent Helm Core 之间的连接路径是：
 
 ```text
 Chrome
@@ -134,43 +244,119 @@ Chrome
 Agent Helm Extension
   │
   ▼
-Native Messaging Host
+Chrome Native Messaging
   │
   ▼
 Agent Helm Core
 ```
 
-This separation is intentional:
+而 ChatGPT 与本地 Agent Helm MCP 服务之间的默认连接路径是：
 
-- the extension owns browser interaction and presentation
-- Native Messaging connects browser and local runtime
-- Agent Helm owns local capability, policy, and execution authority
+```text
+ChatGPT
+  │
+  ▼
+Secure MCP Tunnel
+  │
+  ▼
+OpenAI tunnel-client
+  │
+  ▼
+Agent Helm Core
+```
 
-The browser experience can therefore evolve independently without duplicating or bypassing Agent Helm's security boundary.
+这两个通路承担不同职责。
+
+- Extension 负责浏览器交互与展示
+- Native Messaging 负责浏览器与本地 Agent Helm Core 通信
+- Secure MCP Tunnel 负责 ChatGPT 与 Agent Helm MCP endpoint 的连接
+- Agent Helm Core 负责本地 capability、policy、runtime lifecycle 与 execution authority
+
+这样的分层让浏览器体验可以独立演进，同时不会复制或绕过 Agent Helm 的安全边界。
 
 ## Repository
 
-The public repository currently contains the Chrome integration:
+公开仓库中的 Chrome Extension 位于：
 
 ```text
 agent-helm-extensions/
 └── chrome-extension/
 ```
 
-The extension is built with React and WXT.
+Extension 使用：
 
-Private browser identity and release material are kept outside the public source tree.
+- React
+- TypeScript
+- WXT
+
+浏览器私有 identity 与私有 release material 不进入公开源码树。
+
+## Development
+
+Chrome Extension 的开发环境要求：
+
+- Node.js 22+
+- npm
+- Google Chrome
+
+获取源码并安装依赖：
+
+```bash
+git clone https://github.com/BeforeWave/agent-helm-extensions.git
+cd agent-helm-extensions/chrome-extension
+npm install
+```
+
+启动 WXT Extension 开发模式：
+
+```bash
+npm run dev:extension
+```
+
+如果需要生成 production-style unpacked build：
+
+```bash
+npm run build
+```
+
+构建结果位于：
+
+```text
+chrome-extension/.output/chrome-mv3
+```
+
+然后：
+
+1. 打开 `chrome://extensions`
+2. 开启右上角 **Developer mode**
+3. 点击 **Load unpacked**
+4. 选择 `chrome-extension/.output/chrome-mv3`
+
+提交修改前，可以运行：
+
+```bash
+npm run typecheck
+npm test
+```
+
+如果只需要在浏览器中预览 Extension UI，而不连接真实 Agent Helm runtime，可以使用项目提供的 Web Preview：
+
+```bash
+npm run dev:web
+```
 
 ## Agent Helm Family
 
-| Project | Role |
+| 项目 | 定位 |
 | --- | --- |
-| [Agent Helm](https://github.com/BeforeWave/agent-helm) | Local engineering capabilities, security boundary, and execution control layer |
-| [DSH with ChatGPT](https://github.com/BeforeWave/dsh-with-chatgpt) | Complete ChatGPT + DSH development workflow |
-| **Agent Helm Extensions** | Browser and other user-facing integrations |
+| [Agent Helm](https://github.com/BeforeWave/agent-helm) | ChatGPT 的本地工程能力、安全边界与执行控制层 |
+| [DSH with ChatGPT](https://github.com/BeforeWave/dsh-with-chatgpt) | ChatGPT + DSH 的完整本地开发工作流 |
+| **Agent Helm Extensions** | 浏览器及其他面向用户的 Agent Helm 集成 |
 
 ## Project Status
 
-Agent Helm Extensions is under active development.
+Agent Helm Extensions 目前处于积极开发阶段。
 
-> **Keep ChatGPT where the conversation happens, while connecting it cleanly to the local work controlled by Agent Helm.**
+当前首先提供 Chrome Extension，后续可以在同一个 Extensions 产品边界下扩展其他用户界面与客户端集成。
+
+> **让 ChatGPT 留在对话发生的地方，同时把它干净地连接到 Agent Helm 管理的真实本地工作。**
