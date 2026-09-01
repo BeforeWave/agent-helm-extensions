@@ -1,0 +1,10 @@
+#!/bin/sh
+set -eu
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+. "$SCRIPT_DIR/installer-lib.sh"
+. "$SCRIPT_DIR/verify-installer-artifact.sh"
+package_path=${1:-${PACKAGE_PATH:-}}
+agent_helm_preflight "$package_path"
+agent_helm_verify_installer_artifact "__AGENT_HELM_RELEASE_MANIFEST_URL__" "__AGENT_HELM_VERSION__" "$package_path"
+printf '%s\n' "Agent Helm Installer: artifact integrity verified."
+exit 0

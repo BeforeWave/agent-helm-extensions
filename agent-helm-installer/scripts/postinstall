@@ -1,0 +1,24 @@
+#!/bin/sh
+set -eu
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+. "$SCRIPT_DIR/installer-lib.sh"
+
+package_path=${1:-${PACKAGE_PATH:-}}
+agent_helm_preflight "$package_path"
+extension_id=$(agent_helm_extension_id_from_package "$package_path")
+install_user=$(agent_helm_console_user)
+install_home=$(agent_helm_user_home "$install_user")
+backend="$SCRIPT_DIR/agent-helm-install.sh"
+[ -f "$backend" ] || agent_helm_fail "Canonical Agent Helm install backend is missing from the package."
+
+/usr/bin/sudo -H -u "$install_user" /usr/bin/env \
+  HOME="$install_home" \
+  AGENT_HELM_CHROME_EXTENSION_ID="$extension_id" \
+  AGENT_HELM_VERSION="__AGENT_HELM_VERSION__" \
+  AGENT_HELM_RELEASE_MANIFEST_URL="__AGENT_HELM_RELEASE_MANIFEST_URL__" \
+  AGENT_HELM_RELEASE_RESOLVER="$SCRIPT_DIR/resolve-release-package.mjs" \
+  /bin/sh "$backend"
+
+agent_helm_postflight "$install_home" "$extension_id"
+printf '%s\n' "Agent Helm installation complete for Chrome Extension $extension_id."
+exit 0
