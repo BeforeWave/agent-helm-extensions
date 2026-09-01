@@ -1,0 +1,9 @@
+.preview-page { min-height: 100vh; padding: 24px; background: #f2f3f5; color: #17191d; }
+.preview-toolbar { max-width: 1120px; margin: 0 auto 16px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.preview-toolbar strong { margin-right: 8px; }
+.preview-toolbar button, .preview-toolbar select { min-height: 32px; padding: 5px 10px; border: 1px solid #d6d8dd; border-radius: 7px; background: #fff; }
+.preview-toolbar button[data-active=true] { background: #17191d; color: #fff; border-color: #17191d; }
+.preview-stage { max-width: 1120px; margin: 0 auto; display: flex; justify-content: center; align-items: flex-start; }
+.preview-sidepanel { width: 390px; height: min(780px, calc(100vh - 110px)); overflow: auto; }
+.preview-popup { display: block; }
+.preview-expanded { width: min(920px, 100%); max-height: calc(100vh - 110px); overflow: auto; }
