@@ -26,10 +26,15 @@ describe('browser service helpers', () => {
   it('downloads one static macOS PKG using an Extension-ID-bound local filename', async () => {
     const extensionId = 'bnmokhimnnlfohfjbgigcmpckkncffdo'
     const calls: chrome.downloads.DownloadOptions[] = []
+    const permissionRequests: string[][] = []
     const previousChrome = Object.getOwnPropertyDescriptor(globalThis, 'chrome')
     Object.defineProperty(globalThis, 'chrome', {
       configurable: true,
       value: {
+        permissions: {
+          async contains() { return false },
+          async request(input: chrome.permissions.Permissions) { permissionRequests.push(input.permissions ?? []); return true },
+        },
         downloads: {
           async download(options: chrome.downloads.DownloadOptions) {
             calls.push(options)
@@ -42,13 +47,31 @@ describe('browser service helpers', () => {
       const browser = new ChromeBrowserCapabilities()
       const filename = agentHelmMacosInstallerFilename(uiContractManifest.version, extensionId)
       await browser.downloadFile(agentHelmInstallerSource.macos.downloadUrl, filename)
+      expect(permissionRequests).toEqual([['downloads']])
       expect(calls).toEqual([{
         url: agentHelmInstallerSource.macos.downloadUrl,
-        filename: `Agent-Helm-${agentHelmInstallerSource.macos.version}--chrome-${extensionId}.pkg`,
+        filename: `Agent-Helm-Installer-${agentHelmInstallerSource.macos.version}--chrome-${extensionId}.pkg`,
         saveAs: false,
         conflictAction: 'overwrite',
       }])
       expect(() => agentHelmMacosInstallerFilename(uiContractManifest.version, 'invalid')).toThrow('Invalid Chrome Extension ID')
+    } finally {
+      if (previousChrome) Object.defineProperty(globalThis, 'chrome', previousChrome)
+      else delete (globalThis as { chrome?: unknown }).chrome
+    }
+  })
+
+  it('fails closed when the user declines the optional downloads permission', async () => {
+    const previousChrome = Object.getOwnPropertyDescriptor(globalThis, 'chrome')
+    Object.defineProperty(globalThis, 'chrome', {
+      configurable: true,
+      value: {
+        permissions: { async contains() { return false }, async request() { return false } },
+        downloads: { async download() { throw new Error('must not download without permission') } },
+      },
+    })
+    try {
+      await expect(new ChromeBrowserCapabilities().downloadFile(agentHelmInstallerSource.macos.downloadUrl, 'installer.pkg')).rejects.toThrow('Download permission is required')
     } finally {
       if (previousChrome) Object.defineProperty(globalThis, 'chrome', previousChrome)
       else delete (globalThis as { chrome?: unknown }).chrome
@@ -63,7 +86,7 @@ describe('browser service helpers', () => {
       }), { status: 200, headers: { 'content-type': 'application/json' } }),
     })
     expect(source.macos.version).toBe('9.8.7')
-    expect(source.macos.downloadUrl).toBe('https://github.com/BeforeWave/agent-helm/releases/download/v9.8.7/Agent-Helm-9.8.7.pkg')
+    expect(source.macos.downloadUrl).toBe('https://github.com/BeforeWave/agent-helm/releases/download/v9.8.7/Agent-Helm-Installer-9.8.7.pkg')
   })
 
   it('resolves an explicit loopback UAT installer release without weakening the production default', async () => {
@@ -76,7 +99,7 @@ describe('browser service helpers', () => {
         agentHelm: { version: '9.8.7', releaseUrl },
       }), { status: 200, headers: { 'content-type': 'application/json' } }),
     })
-    expect(source.macos.downloadUrl).toBe('http://127.0.0.1:48766/agent-helm/releases/download/v9.8.7/Agent-Helm-9.8.7.pkg')
+    expect(source.macos.downloadUrl).toBe('http://127.0.0.1:48766/agent-helm/releases/download/v9.8.7/Agent-Helm-Installer-9.8.7.pkg')
   })
 
   it('rejects non-loopback installer release overrides', async () => {
