@@ -22,6 +22,7 @@ The first integration is the **Agent Helm Chrome Extension**. It connects the Ch
               Workspaces   Work   Local Agents
                          History
 ```
+<img width="2166" height="1498" alt="workbench" src="https://github.com/user-attachments/assets/0c65c877-91d2-4453-a986-52d1bd13af5a" />
 
 ## ChatGPT in the browser, connected to real local work
 
@@ -43,17 +44,13 @@ This gives the browser visibility into the real local work behind the conversati
 
 ## Guided setup
 
-<img width="918" height="840" alt="20260831234952" src="https://github.com/user-attachments/assets/698ccbdc-427a-4b21-9586-449c5e1755eb" />
-
-<img width="830" height="1802" alt="image" src="https://github.com/user-attachments/assets/9e502dfc-b226-4c56-b784-192721fd2b1c" />
-<img width="1988" height="1934" alt="20260831234846" src="https://github.com/user-attachments/assets/e135e681-fc2a-410d-8a05-a77e02be54ba" />
-<img width="2132" height="1910" alt="20260831234923" src="https://github.com/user-attachments/assets/609da667-b89f-4b6d-99c8-35bcbcea1dff" />
-
 ### Recommended: start with the Chrome Extension
 
 **The Chrome Extension can be your starting point, not just the final installation step.**
 
 You can install the Agent Helm Chrome Extension first. The Extension checks whether the local Agent Helm environment is already available.
+
+<img width="1988" height="1934" alt="20260831234846" src="https://github.com/user-attachments/assets/635dc6ec-429c-4553-ba8e-a9528afeeac3" />
 
 If Agent Helm is not installed yet, the Extension guides you through the required installation and configuration, including:
 
@@ -143,9 +140,8 @@ Click the Agent Helm icon in the Chrome toolbar to quickly inspect and control:
 - Local Agent LSP
 - Tunnel state
 
-<!-- Screenshot: Agent Helm popup -->
+<img width="774" height="828" alt="chrome-plugin" src="https://github.com/user-attachments/assets/dec8f2ad-e632-444e-8290-4688e691cb23" />
 
-> _Screenshot coming soon: Agent Helm Popup and capability controls._
 
 ### Side Panel
 
@@ -160,9 +156,8 @@ You can:
 - inspect Subagent Sessions
 - move between different Work records
 
-<!-- Screenshot: Agent Helm Work History side panel -->
+<img width="786" height="1634" alt="chrome-pannle" src="https://github.com/user-attachments/assets/17fa7b87-c106-4449-aa4a-25de518f9d75" />
 
-> _Screenshot coming soon: Workspace-filtered Work History in the Chrome Side Panel._
 
 ### Work Detail
 
@@ -178,9 +173,7 @@ Work Detail shows the complete context for an individual Work record, including:
 
 When the current browser tab contains a `chatgpt.com` Conversation, the Extension can detect that Conversation and associate it with the corresponding Agent Helm Work History record.
 
-<!-- Screenshot: Agent Helm Work Detail -->
-
-> _Screenshot coming soon: Work Detail, ChatGPT activity, Subagent Sessions, and linked Conversations._
+<img width="2044" height="1516" alt="details" src="https://github.com/user-attachments/assets/fd371ede-b590-434c-ab4e-34610df3999f" />
 
 ## Work History
 
