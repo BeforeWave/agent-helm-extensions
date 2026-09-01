@@ -15,7 +15,7 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
-    "types": ["chrome", "vite/client", "vitest/globals"]
+    "types": ["chrome", "vite/client", "vitest/globals", "node"]
   },
   "include": ["entrypoints", "src", "preview", "tests", "wxt.config.ts", "vite.preview.config.ts", ".wxt/wxt.d.ts"]
 }

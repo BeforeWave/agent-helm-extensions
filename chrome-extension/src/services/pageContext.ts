@@ -8,7 +8,7 @@ export interface PageTabMetadata {
   active?: boolean
 }
 
-const CHATGPT_HOSTS = new Set(['chatgpt.com', 'www.chatgpt.com'])
+const CHATGPT_HOST = 'chatgpt.com'
 
 export function normalizeChatGPTConversationUrl(value: string): string | null {
   let url: URL
@@ -17,7 +17,7 @@ export function normalizeChatGPTConversationUrl(value: string): string | null {
   } catch {
     return null
   }
-  if (url.protocol !== 'https:' || !CHATGPT_HOSTS.has(url.hostname)) return null
+  if (url.protocol !== 'https:' || url.hostname !== CHATGPT_HOST) return null
 
   const parts = url.pathname.split('/').filter(Boolean)
   const directConversation = parts.length === 2 && parts[0] === 'c' && Boolean(parts[1])
@@ -34,23 +34,24 @@ export function classifyChatGPTPage(value: string): Pick<PageContext, 'kind' | '
   } catch {
     return { kind: 'other', url: null, conversationUrl: null }
   }
-  if (url.protocol !== 'https:' || !CHATGPT_HOSTS.has(url.hostname)) {
-    return { kind: 'other', url: url.href, conversationUrl: null }
+  if (url.protocol !== 'https:' || url.hostname !== CHATGPT_HOST) {
+    return { kind: 'other', url: null, conversationUrl: null }
   }
   const conversationUrl = normalizeChatGPTConversationUrl(url.href)
   return {
     kind: conversationUrl ? 'conversation' : 'chatgpt',
-    url: url.href,
+    url: conversationUrl,
     conversationUrl,
   }
 }
 
 export function pageContextFromTab(tab: PageTabMetadata): PageContext {
+  const classified = classifyChatGPTPage(tab.url ?? '')
   return {
-    ...classifyChatGPTPage(tab.url ?? ''),
+    ...classified,
     tabId: typeof tab.id === 'number' ? tab.id : null,
     windowId: typeof tab.windowId === 'number' ? tab.windowId : null,
-    title: tab.title ?? '',
+    title: classified.kind === 'other' ? '' : tab.title ?? '',
     active: Boolean(tab.active),
   }
 }

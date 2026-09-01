@@ -11,11 +11,10 @@ export default defineConfig({
     name: '__MSG_extensionName__',
     description: '__MSG_extensionDescription__',
     version: '0.1.0',
-    permissions: ['alarms', 'downloads', 'nativeMessaging', 'notifications', 'sidePanel', 'storage', 'tabs'],
+    permissions: ['alarms', 'nativeMessaging', 'notifications', 'sidePanel', 'storage'],
+    optional_permissions: ['downloads'],
     host_permissions: [
       'https://chatgpt.com/*',
-      'https://www.chatgpt.com/*',
-      'https://raw.githubusercontent.com/BeforeWave/agent-helm/main/compatibility/*',
       ...(uatCompatibilityUrl ? ['http://127.0.0.1/*'] : []),
     ],
     side_panel: {
