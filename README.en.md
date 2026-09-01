@@ -1,97 +1,76 @@
+<p align="right">
+  <a href="./README.en.md"><b>English</b></a> | <a href="./README.md">中文</a>
+</p>
+
 # Agent Helm Extensions
 
-[中文](./README.md)
+> **Bring ChatGPT in your browser directly into your local development environment: understand the real codebase, work on local projects, and carry out engineering tasks without constantly copying and pasting files and logs.**
 
-> **Keep ChatGPT where the conversation happens, while connecting it to the real local work managed by Agent Helm.**
+[**Agent Helm**](https://github.com/BeforeWave/agent-helm) **Extensions** lets ChatGPT in your browser actually work on your local projects.
 
-**Agent Helm Extensions** provides browser and other user-facing integrations for [Agent Helm](https://github.com/BeforeWave/agent-helm).
+After installing the **Agent Helm Chrome Extension**, you continue using the same ChatGPT you already use, but it is no longer limited to what is visible inside the chat window.
 
-The first integration is the **Agent Helm Chrome Extension**. It connects the ChatGPT experience in your browser with Agent Helm running locally on your machine.
+It can connect to an authorized local project, understand its actual current state, make changes based on your instructions, complete tasks, and inspect the real results afterward.
+
+Local operations run within explicit permission boundaries and a **Sandbox**, so ChatGPT can actually get work done without gaining unrestricted access to your entire machine.
+
+You can describe problems, request changes, discuss solutions, and review results just as you normally would. Longer-running tasks can also be handed off to a local Agent when needed.
 
 ```text
-                    ChatGPT in Chrome
+                    ChatGPT in Browser
+                           │
+                  Understand · Reason · Work
                            │
                            ▼
                   Agent Helm Extension
                            │
-                    Native Messaging
+                    Sandbox Boundary
                            │
                            ▼
-                       Agent Helm
-                    /      |      \
-              Workspaces   Work   Local Agents
-                         History
+                      Local Project
 ```
+
 <img width="2166" height="1498" alt="workbench" src="https://github.com/user-attachments/assets/0c65c877-91d2-4453-a986-52d1bd13af5a" />
 
-## ChatGPT in the browser, connected to real local work
+## Let ChatGPT work on the real local project
 
-A task can begin inside a ChatGPT conversation while the actual engineering work happens in a local Workspace.
+A task may start in a ChatGPT Conversation, but the real project stays on your machine.
 
-Agent Helm Extension connects those two contexts.
+Agent Helm Extension connects the two.
 
-From the browser, you can see:
+You no longer need to keep copying code, logs, errors, and project context into the chat. ChatGPT can work directly from your authorized local project to understand the problem, make changes, and inspect the actual result.
 
-- Agent Helm connection state
-- local Workspaces
-- available capabilities
-- local Coding Agents
-- Work History
-- associated ChatGPT Conversations
-- delegated Subagent Sessions
+From a user's perspective, the workflow stays simple:
 
-This gives the browser visibility into the real local work behind the conversation.
+* Describe what you want in ChatGPT
+* Let ChatGPT understand the current project
+* Let it handle changes directly
+* Hand larger tasks off to a local Agent when needed
+* Return to the same Conversation to continue discussing and reviewing the work
 
-## Guided setup
+The Extension also associates the Conversation with its corresponding local work, so you can always see which project and which piece of work sit behind the current conversation.
+
+## Guided Setup
 
 ### Recommended: start with the Chrome Extension
 
-**The Chrome Extension can be your starting point, not just the final installation step.**
+**The Chrome Extension itself is an installation entry point, not just the final step after the entire environment has already been prepared.**
 
-You can install the Agent Helm Chrome Extension first. The Extension checks whether the local Agent Helm environment is already available.
+You can install the Agent Helm Chrome Extension first.
+
+The Extension automatically checks whether the required local environment is already available on your machine.
 
 <img width="1988" height="1934" alt="20260831234846" src="https://github.com/user-attachments/assets/635dc6ec-429c-4553-ba8e-a9528afeeac3" />
 
-If Agent Helm is not installed yet, the Extension guides you through the required installation and configuration, including:
+If the environment is not ready yet, the Extension continues guiding you through the installation, configuration, and authorization required for Agent Helm, the local connection, and the ChatGPT connection.
 
-- Agent Helm Core
-- the required Node.js runtime
-- Chrome Native Messaging registration
-- Serena / Semantic Code Intelligence
-- OpenAI tunnel-client
-- Secure MCP Tunnel configuration
-- ChatGPT Developer Mode / Connector configuration
+Steps that can be completed automatically are handled for you. When user authorization or an external action is required, the setup flow gives you a clear next step.
 
-Where automatic installation is supported, Agent Helm can perform the installation for you. When a step requires user authorization or an external action, the setup flow provides the official destination and the exact next step.
+**You do not need to leave the browser and figure out how to install and connect the entire local environment yourself.**
 
-**You do not need to leave the browser first and research how to prepare the entire local environment yourself.**
+### Prefer the command line?
 
-```text
-Install Chrome Extension
-        │
-        ▼
-Detect local Agent Helm
-        │
-        ├── Installed ─────────────┐
-        │                          │
-        └── Missing               │
-              │                   │
-              ▼                   │
-       Guide Agent Helm install   │
-              │                   │
-              ▼                   │
- Guide dependencies / Tunnel /    │
-       ChatGPT connection         │
-              │                   │
-              └───────────────────┘
-                        │
-                        ▼
-                       Ready
-```
-
-### Prefer the terminal?
-
-You can also install and configure Agent Helm independently from the CLI:
+If you prefer the Terminal, you can also install and configure Agent Helm directly:
 
 ```bash
 npm install -g agent-helm
@@ -99,32 +78,24 @@ agent-helm setup
 agent-helm setup chrome
 ```
 
-### Already have Agent Helm installed and configured?
-
-Skip directly to Chrome integration setup:
+If Agent Helm is already installed and configured, you can go directly to Chrome setup:
 
 ```bash
 agent-helm setup chrome
 ```
 
-Both entry points converge on the same Agent Helm setup flow.
+Whether you start from the Extension or the command line, both paths lead to the same Setup flow.
 
-If an external action is required, Agent Helm gives you the official destination and the next action instead of sending you away to search third-party documentation.
-
-The current connection stack uses:
-
-- **OpenAI tunnel-client** as Agent Helm's default Secure MCP Tunnel backend
-- **Chrome Native Messaging** between the Extension and local Agent Helm Core
-- Agent Helm Core for semantic code intelligence and sandboxed local execution
-
-For the current Serena, Anthropic Sandbox Runtime, OpenAI tunnel-client backends, and the complete security model, see [Agent Helm](https://github.com/BeforeWave/agent-helm).
-
-After setup, the normal runtime lifecycle stays simple:
+Once setup is complete:
 
 ```bash
 agent-helm start
 agent-helm status
 ```
+
+Agent Helm:
+
+https://github.com/BeforeWave/agent-helm
 
 ## Browser Experience
 
@@ -132,80 +103,61 @@ Agent Helm Chrome Extension currently provides three main browser surfaces.
 
 ### Popup
 
-Click the Agent Helm icon in the Chrome toolbar to quickly inspect and control:
-
-- Agent Helm Service state
-- Understand / Code / Command capabilities
-- available Coding Agents
-- Local Agent LSP
-- Tunnel state
+Click the Agent Helm icon in the Chrome toolbar to quickly confirm the local connection state and whether ChatGPT is ready to work locally.
 
 <img width="774" height="828" alt="chrome-plugin" src="https://github.com/user-attachments/assets/dec8f2ad-e632-444e-8290-4688e691cb23" />
 
-
 ### Side Panel
 
-The Side Panel is the primary browser view for local work.
+The Side Panel is the main browser view for your work.
 
-You can:
-
-- browse Work History
-- filter local work by Workspace
-- add or switch Workspaces
-- inspect work performed directly by ChatGPT
-- inspect Subagent Sessions
-- move between different Work records
+You can see the current Workspace and Work History, move between different pieces of work, and view both work completed directly by ChatGPT and tasks handed off to local Agents.
 
 <img width="786" height="1634" alt="chrome-pannle" src="https://github.com/user-attachments/assets/17fa7b87-c106-4449-aa4a-25de518f9d75" />
 
-
 ### Work Detail
 
-Work Detail shows the complete context for an individual Work record, including:
+Work Detail shows the complete context for an individual piece of work.
 
-- ChatGPT Direct Work
-- Subagent Work
-- activity timeline
-- execution actions
-- associated ChatGPT Conversations
-- Workspace information
-- the initial requirement and subsequent work context
+You can see what ChatGPT has done, work performed by local Agents, activity history, associated Conversations, and the Workspace behind the work.
 
-When the current browser tab contains a `chatgpt.com` Conversation, the Extension can detect that Conversation and associate it with the corresponding Agent Helm Work History record.
+When the current tab contains a `chatgpt.com` Conversation, the Extension can recognize that Conversation and associate it with the corresponding local Work.
 
 <img width="2044" height="1516" alt="details" src="https://github.com/user-attachments/assets/fd371ede-b590-434c-ab4e-34610df3999f" />
 
 ## Work History
 
-Agent Helm Extension makes it easier to move between a ChatGPT Conversation and the local work behind it.
+Real work often extends beyond a single ChatGPT Conversation.
 
-```text
-ChatGPT Conversation
-        │
-        ▼
-       Work
-     /      \
-Direct Work  Subagent Sessions
-```
+ChatGPT may complete part of the task directly and hand a larger part off to a local Agent. You may also switch Workspaces, leave the Conversation, and return later to continue.
 
-You can answer practical questions such as:
+Work History brings that work back together.
 
-- Which local work belongs to this Conversation?
-- Which Workspace / Worktree was used?
-- Was the task handled directly by ChatGPT or delegated to a Subagent?
-- Which Agent Session should I reopen?
-- What happened locally after I left the Conversation?
-- Which ChatGPT Conversations are associated with this Work?
+You can always find:
 
-Work History is not intended to be just another chat log.
+* Which local work belongs to this Conversation
+* Which Workspace / Worktree was used
+* What ChatGPT has already completed
+* Whether work was handed off to a local Agent
+* Which Agent Session belongs to the task
+* What happened after you left the Conversation
+* Which ChatGPT Conversations are associated with a Work
+
+Work History is not another copy of the chat transcript.
 
 It connects:
 
-**Conversation → Workspace → Direct Work → Subagent Sessions → actual execution history**
+**Conversation → Workspace → Direct Work → Agent Sessions → Actual Work History**
 
-## The browser is not the execution boundary
+That means even if a piece of work continues for a long time, closing a tab or switching Conversations does not cause you to lose its context.
 
-The Chrome Extension is an interaction and presentation layer. It is not a privileged local execution runtime.
+## Let ChatGPT actually work — safely
+
+Letting ChatGPT work on a local project should not mean handing over your entire computer.
+
+Agent Helm Extension connects only to the local work environment you authorize. What ChatGPT can access, where it can work, and what local operations it can perform are all constrained by explicit permission boundaries.
+
+Local execution is further constrained by a **Sandbox**.
 
 ```text
 ChatGPT
@@ -214,28 +166,38 @@ ChatGPT
 Chrome Extension
    │
    ▼
-Native Messaging
-   │
-   ▼
 Agent Helm
    │
-   ├── Execution Context
-   ├── Capability Policy
+   ├── Authorized Workspace
+   ├── Permission Boundary
    └── Sandbox
             │
             ▼
-     Authorized Local Workspace
+       Local Project
 ```
 
-Filesystem access, command execution, environment access, networking, semantic capabilities, and Agent delegation remain controlled by Agent Helm.
+This does not rely on simply telling ChatGPT through a Prompt not to access anything else.
 
-Installing the Chrome Extension therefore does not give the browser unrestricted access to the local machine.
+The actual restrictions are enforced at the local execution layer.
 
-For the complete local capability boundary, security model, and sandbox enforcement model, see [Agent Helm](https://github.com/BeforeWave/agent-helm).
+> **ChatGPT can actually enter the project and work, while what it can access and execute remains controlled by explicit local permissions and Sandbox boundaries.**
+
+The complete local capability and security model is provided by Agent Helm:
+
+https://github.com/BeforeWave/agent-helm
+
+## Related Projects
+
+These projects can all be used independently. You do not need to understand the entire product family first.
+
+| Project              | Description                                                                            | Link                                           |
+| -------------------- | -------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| **Agent Helm**       | Gives ChatGPT controlled capabilities to work locally.                                 | https://github.com/BeforeWave/agent-helm       |
+| **DSH with ChatGPT** | Brings ChatGPT and DSH Coding Agents together in a more complete development workflow. | https://github.com/BeforeWave/dsh-with-chatgpt |
 
 ## How it connects
 
-The browser connects to Agent Helm Core through:
+The Extension connects to the local environment through Chrome Native Messaging:
 
 ```text
 Chrome
@@ -247,10 +209,10 @@ Agent Helm Extension
 Chrome Native Messaging
   │
   ▼
-Agent Helm Core
+Agent Helm
 ```
 
-ChatGPT connects to the local Agent Helm MCP service through the default path:
+ChatGPT connects to local Agent Helm through a Secure MCP Tunnel:
 
 ```text
 ChatGPT
@@ -259,104 +221,22 @@ ChatGPT
 Secure MCP Tunnel
   │
   ▼
-OpenAI tunnel-client
-  │
-  ▼
-Agent Helm Core
+Agent Helm
 ```
 
-These two paths have different responsibilities:
+The two connections serve different purposes:
 
-- the Extension owns browser interaction and presentation
-- Native Messaging connects the browser to local Agent Helm Core
-- the Secure MCP Tunnel connects ChatGPT to the Agent Helm MCP endpoint
-- Agent Helm Core owns local capabilities, policy, runtime lifecycle, and execution authority
+* The Extension handles browser interaction and presentation
+* Native Messaging connects the browser to local Agent Helm
+* Secure MCP Tunnel connects ChatGPT to local Agent Helm
+* Agent Helm handles the actual local work and security boundaries
 
-This separation allows the browser experience to evolve independently without duplicating or bypassing Agent Helm's security boundary.
-
-## Repository
-
-The Chrome Extension source lives under:
-
-```text
-agent-helm-extensions/
-└── chrome-extension/
-```
-
-The Extension is built with:
-
-- React
-- TypeScript
-- WXT
-
-Private browser identity and private release material are kept outside the public source tree.
-
-## Development
-
-The Chrome Extension development environment requires:
-
-- Node.js 22+
-- npm
-- Google Chrome
-
-Clone the repository and install dependencies:
-
-```bash
-git clone https://github.com/BeforeWave/agent-helm-extensions.git
-cd agent-helm-extensions/chrome-extension
-npm install
-```
-
-Run the Extension in WXT development mode:
-
-```bash
-npm run dev:extension
-```
-
-For a production-style unpacked build:
-
-```bash
-npm run build
-```
-
-The generated extension is available at:
-
-```text
-chrome-extension/.output/chrome-mv3
-```
-
-Then:
-
-1. Open `chrome://extensions`
-2. Enable **Developer mode**
-3. Choose **Load unpacked**
-4. Select `chrome-extension/.output/chrome-mv3`
-
-Before submitting changes:
-
-```bash
-npm run typecheck
-npm test
-```
-
-If you only want to preview the Extension UI without connecting to a real Agent Helm runtime, use the Web Preview:
-
-```bash
-npm run dev:web
-```
-
-## Agent Helm Family
-
-| Project | Role |
-| --- | --- |
-| [Agent Helm](https://github.com/BeforeWave/agent-helm) | Local engineering capabilities, security boundary, and execution control layer for ChatGPT |
-| [DSH with ChatGPT](https://github.com/BeforeWave/dsh-with-chatgpt) | Complete ChatGPT + DSH local development workflow |
-| **Agent Helm Extensions** | Browser and other user-facing Agent Helm integrations |
+From the user's perspective, once these connections are set up, you still work in the same ChatGPT you already use.
 
 ## Project Status
 
 Agent Helm Extensions is under active development.
 
-The first integration is the Chrome Extension. Additional user-facing clients and integrations can evolve under the same Extensions product boundary.
+Agent Helm Chrome Extension is currently available.
 
-> **Keep ChatGPT where the conversation happens, while connecting it cleanly to the real local work controlled by Agent Helm.**
+> **Bring ChatGPT in your browser directly into your local development environment, where it can understand the real project and get work done while staying within clear local permission and Sandbox boundaries.**
