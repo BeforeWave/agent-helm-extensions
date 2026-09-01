@@ -22,6 +22,7 @@
               Workspaces   Work   Local Agents
                          History
 ```
+<img width="2166" height="1498" alt="workbench" src="https://github.com/user-attachments/assets/0c65c877-91d2-4453-a986-52d1bd13af5a" />
 
 ## 让浏览器里的 ChatGPT 看见真实的本地工作
 
@@ -38,7 +39,7 @@ Agent Helm Extension 把这两个上下文连接起来。
 - Work History
 - 关联的 ChatGPT Conversations
 - 已委派的 Subagent Sessions
-
+  
 这样，浏览器中的对话不再与实际发生在本地的工作割裂。
 
 
@@ -50,6 +51,7 @@ Agent Helm Extension 把这两个上下文连接起来。
 **Chrome Extension 本身就是 Agent Helm 的一个安装入口，而不只是安装完成后的最后一步。**
 
 你可以先安装 Agent Helm Chrome Extension。Extension 会检查本机是否已经具备 Agent Helm 运行环境。
+<img width="1988" height="1934" alt="20260831234846" src="https://github.com/user-attachments/assets/635dc6ec-429c-4553-ba8e-a9528afeeac3" />
 
 如果本机还没有 Agent Helm，Extension 会继续引导你完成需要的安装和配置，包括：
 
@@ -62,9 +64,6 @@ Agent Helm Extension 把这两个上下文连接起来。
 - ChatGPT Developer Mode / Connector 配置
 
 在支持自动安装的步骤上，Agent Helm 会直接完成安装；需要用户授权或前往外部页面的步骤，则会给出官方入口和明确的下一步操作。
-
-<img width="1988" height="1934" alt="20260831234846" src="https://github.com/user-attachments/assets/e135e681-fc2a-410d-8a05-a77e02be54ba" />
-<img width="2132" height="1910" alt="20260831234923" src="https://github.com/user-attachments/assets/609da667-b89f-4b6d-99c8-35bcbcea1dff" />
 
 **你不需要先离开浏览器，自己研究如何把整套本地环境准备好。**
 
@@ -141,10 +140,7 @@ Agent Helm Chrome Extension 当前提供三个主要浏览器界面。
 - Local Agent LSP
 - Tunnel 状态
 
-<img width="1414" height="1330" alt="image" src="https://github.com/user-attachments/assets/72332c3f-0150-4524-97f8-b6ef855e3a45" />
-
-
-
+<img width="774" height="828" alt="chrome-plugin" src="https://github.com/user-attachments/assets/dec8f2ad-e632-444e-8290-4688e691cb23" />
 
 ### Side Panel
 
@@ -159,7 +155,8 @@ Side Panel 是浏览器里的主要工作视图。
 - 查看 Subagent Sessions
 - 在不同 Work 之间切换
 
-<img width="830" height="1802" alt="image" src="https://github.com/user-attachments/assets/9e502dfc-b226-4c56-b784-192721fd2b1c" />
+<img width="786" height="1634" alt="chrome-pannle" src="https://github.com/user-attachments/assets/17fa7b87-c106-4449-aa4a-25de518f9d75" />
+
 
 ### Work Detail
 
@@ -175,7 +172,8 @@ Work Detail 用来查看一项工作的完整上下文，包括：
 
 当当前标签页打开的是一个 `chatgpt.com` Conversation 时，Extension 可以识别当前 Conversation，并将它与对应的 Agent Helm Work History 关联。
 
-<img width="3828" height="1942" alt="20260901001705" src="https://github.com/user-attachments/assets/dddee8c5-207a-43c2-a94e-0fd4cf09e10b" />
+<img width="2044" height="1516" alt="details" src="https://github.com/user-attachments/assets/fd371ede-b590-434c-ab4e-34610df3999f" />
+
 
 
 ## Work History
@@ -205,7 +203,9 @@ Work History 的目标不是简单保存一份聊天记录。
 它连接的是：
 
 **Conversation → Workspace → Direct Work → Subagent Sessions → 实际执行历史**
-<img width="3834" height="1936" alt="20260901001736" src="https://github.com/user-attachments/assets/efab56f2-5f70-4057-87e2-97241ce18b05" />
+
+
+
 ## 浏览器不是执行边界
 
 Chrome Extension 是交互和展示层，不是拥有本地高权限的执行 runtime。
