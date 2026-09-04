@@ -16,7 +16,74 @@ The extension connects the current ChatGPT conversation with the local work happ
 
 Right from the browser, you can see which project ChatGPT is using, what it has done locally, whether work has been handed off to an agent, and how that work is progressing.
 
-<img width="2166" height="1498" alt="Agent Helm Chrome Extension" src="https://github.com/user-attachments/assets/0c65c877-91d2-4453-a986-52d1bd13af5a" />
+<img width="1000" alt="Agent Helm Chrome Extension" src="https://github.com/user-attachments/assets/0c65c877-91d2-4453-a986-52d1bd13af5a" />
+
+## Quick Start
+
+### 1. Install the Chrome Extension
+
+Install the **Agent Helm Chrome Extension**.
+
+The extension checks whether your machine is ready to connect to Agent Helm.
+
+<img width="900" alt="Agent Helm install required" src="https://github.com/user-attachments/assets/635dc6ec-429c-4553-ba8e-a9528afeeac3" />
+
+If Agent Helm is not installed locally, the Extension shows **Download Installer**:
+
+- macOS: `Agent-Helm-Installer-0.1.0.pkg`
+- Windows x64: `Agent-Helm-Installer-0.1.0-win32-x64.cmd`
+
+The Installer version matches the Extension version and installs the exact Agent Helm version pinned by that Extension Release.
+
+Complete the installation, connection, and permission steps, then return to ChatGPT and start working.
+
+### 2. Terminal Installation
+
+macOS / Linux:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/BeforeWave/agent-helm-extensions/main/install-chrome.sh | sh
+```
+
+Install a specific Extension version:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/BeforeWave/agent-helm-extensions/main/install-chrome.sh | sh -s -- 0.1.0
+```
+
+Windows x64:
+
+```powershell
+irm https://raw.githubusercontent.com/BeforeWave/agent-helm-extensions/main/install-chrome.ps1 | iex
+```
+
+Install a specific Extension version:
+
+```powershell
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/BeforeWave/agent-helm-extensions/main/install-chrome.ps1))) -Version 0.1.0
+```
+
+The terminal installer handles Node/runtime, Agent Helm, and Native Messaging bridge setup, then extracts the matching Extension into Downloads. The only remaining Chrome action is to enable Developer mode and choose **Load unpacked**.
+
+Current Windows support is Windows x64, covering common Intel/AMD Windows 10 and Windows 11 systems. Windows ARM64 is not yet a supported target.
+
+### 3. Finish Setup and Verify
+
+If Agent Helm is already installed and configured:
+
+```bash
+agent-helm setup chrome
+```
+
+Check the local connection with:
+
+```bash
+agent-helm start
+agent-helm status
+agent-helm doctor
+```
+
+Once connected, return to ChatGPT and start working. To stop Agent Helm later, run `agent-helm stop`.
 
 ## Start from the ChatGPT You Already Use
 
@@ -64,7 +131,7 @@ You can see:
 * The associated agent session
 * Previous work history
 
-<img width="2044" height="1516" alt="Agent Helm Work Detail" src="https://github.com/user-attachments/assets/fd371ede-b590-434c-ab4e-34610df3999f" />
+<img width="900" alt="Agent Helm Work Detail" src="https://github.com/user-attachments/assets/fd371ede-b590-434c-ab4e-34610df3999f" />
 
 Even after leaving the original conversation, you can come back through Work History and see what happened locally.
 
@@ -81,73 +148,9 @@ From there, you can view and manage:
 * Work History
 * Agent Helm connection and runtime status
 
-<img width="786" height="1634" alt="Agent Helm Side Panel" src="https://github.com/user-attachments/assets/17fa7b87-c106-4449-aa4a-25de518f9d75" />
+<img width="420" alt="Agent Helm Side Panel" src="https://github.com/user-attachments/assets/17fa7b87-c106-4449-aa4a-25de518f9d75" />
 
 The toolbar **Popup** provides a quick view of installation and connection status.
-
-## Quick Start
-
-### Recommended: Start with the Chrome Extension
-
-Install the **Agent Helm Chrome Extension**.
-
-The extension checks whether your machine is ready to connect to Agent Helm.
-
-<img width="1988" height="1934" alt="Agent Helm install required" src="https://github.com/user-attachments/assets/635dc6ec-429c-4553-ba8e-a9528afeeac3" />
-
-If Agent Helm is not installed locally, the Extension shows **Download Installer**:
-
-- macOS: \`Agent-Helm-Installer-0.1.0.pkg\`
-- Windows x64: \`Agent-Helm-Installer-0.1.0-win32-x64.cmd\`
-
-The Installer version matches the Extension version and installs the exact Agent Helm version pinned by that Extension Release.
-
-Complete the installation, connection, and permission steps, then return to ChatGPT and start working.
-
-### Terminal Installation
-
-macOS / Linux:
-
-\`\`\`bash
-curl -fsSL https://raw.githubusercontent.com/BeforeWave/agent-helm-extensions/main/install-chrome.sh | sh
-\`\`\`
-
-Install a specific Extension version:
-
-\`\`\`bash
-curl -fsSL https://raw.githubusercontent.com/BeforeWave/agent-helm-extensions/main/install-chrome.sh | sh -s -- 0.1.0
-\`\`\`
-
-Windows x64:
-
-\`\`\`powershell
-irm https://raw.githubusercontent.com/BeforeWave/agent-helm-extensions/main/install-chrome.ps1 | iex
-\`\`\`
-
-Install a specific Extension version:
-
-\`\`\`powershell
-& ([scriptblock]::Create((irm https://raw.githubusercontent.com/BeforeWave/agent-helm-extensions/main/install-chrome.ps1))) -Version 0.1.0
-\`\`\`
-
-The terminal installer handles Node/runtime, Agent Helm, and Native Messaging bridge setup, then extracts the matching Extension into Downloads. The only remaining Chrome action is to enable Developer mode and choose **Load unpacked**.
-
-Current Windows support is Windows x64, covering common Intel/AMD Windows 10 and Windows 11 systems. Windows ARM64 is not yet a supported target.
-
-If Agent Helm is already installed and configured:
-
-\`\`\`bash
-agent-helm setup chrome
-\`\`\`
-
-Common commands:
-
-\`\`\`bash
-agent-helm start
-agent-helm status
-agent-helm doctor
-agent-helm stop
-\`\`\`
 
 ## Local Projects and Security
 

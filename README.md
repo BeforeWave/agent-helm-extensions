@@ -16,7 +16,74 @@ Extension 会把当前 ChatGPT Conversation 和本地正在发生的工作关联
 
 你可以直接在浏览器里看到 ChatGPT 当前用了哪个项目、在本地做过什么、任务有没有交给 Agent，以及现在进行到哪。
 
-<img width="2166" height="1498" alt="Agent Helm Chrome Extension" src="https://github.com/user-attachments/assets/0c65c877-91d2-4453-a986-52d1bd13af5a" />
+<img width="1000" alt="Agent Helm Chrome Extension" src="https://github.com/user-attachments/assets/0c65c877-91d2-4453-a986-52d1bd13af5a" />
+
+## 快速开始
+
+### 1. 安装 Chrome Extension
+
+安装 **Agent Helm Chrome Extension**。
+
+Extension 会检查当前电脑是否已经可以连接 Agent Helm。
+
+<img width="900" alt="Agent Helm install required" src="https://github.com/user-attachments/assets/635dc6ec-429c-4553-ba8e-a9528afeeac3" />
+
+如果本地还没有 Agent Helm，Extension 会显示 **Download Installer**：
+
+- macOS：`Agent-Helm-Installer-0.1.0.pkg`
+- Windows x64：`Agent-Helm-Installer-0.1.0-win32-x64.cmd`
+
+Installer 与 Extension 使用相同版本，并安装该 Extension Release 固定的 Agent Helm 版本。
+
+按照页面完成安装、连接和授权后，回到 ChatGPT 就可以开始使用。
+
+### 2. Terminal 一键安装
+
+macOS / Linux：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/BeforeWave/agent-helm-extensions/main/install-chrome.sh | sh
+```
+
+指定 Extension 版本：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/BeforeWave/agent-helm-extensions/main/install-chrome.sh | sh -s -- 0.1.0
+```
+
+Windows x64：
+
+```powershell
+irm https://raw.githubusercontent.com/BeforeWave/agent-helm-extensions/main/install-chrome.ps1 | iex
+```
+
+指定 Extension 版本：
+
+```powershell
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/BeforeWave/agent-helm-extensions/main/install-chrome.ps1))) -Version 0.1.0
+```
+
+Terminal 安装会完成 Node/runtime、Agent Helm 和 Native Messaging bridge，并把匹配的 Extension 解压到 Downloads。最后只需要在 Chrome 中打开 Developer mode，选择 **Load unpacked**。
+
+当前 Windows 支持范围为 Windows x64，即常见 Intel / AMD Windows 10、Windows 11。Windows ARM64 暂不作为正式支持平台。
+
+### 3. 完成配置并验证
+
+如果已经安装并配置过 Agent Helm：
+
+```bash
+agent-helm setup chrome
+```
+
+检查本地连接：
+
+```bash
+agent-helm start
+agent-helm status
+agent-helm doctor
+```
+
+连接完成后，回到 ChatGPT 就可以开始使用。之后需要停止 Agent Helm 时，运行 `agent-helm stop`。
 
 ## 从你正在用的 ChatGPT 开始
 
@@ -64,7 +131,7 @@ Extension 会把当前 ChatGPT Conversation 和对应的本地工作关联起来
 * 关联的 Agent Session
 * 历史工作记录
 
-<img width="2044" height="1516" alt="Agent Helm Work Detail" src="https://github.com/user-attachments/assets/fd371ede-b590-434c-ab4e-34610df3999f" />
+<img width="900" alt="Agent Helm Work Detail" src="https://github.com/user-attachments/assets/fd371ede-b590-434c-ab4e-34610df3999f" />
 
 即使你已经离开原来的 Conversation，之后也可以从 Work History 里重新找到这项工作，看看当时在本地发生了什么。
 
@@ -81,73 +148,9 @@ Extension 会把当前 ChatGPT Conversation 和对应的本地工作关联起来
 * Work History
 * Agent Helm 的连接和运行状态
 
-<img width="786" height="1634" alt="Agent Helm Side Panel" src="https://github.com/user-attachments/assets/17fa7b87-c106-4449-aa4a-25de518f9d75" />
+<img width="420" alt="Agent Helm Side Panel" src="https://github.com/user-attachments/assets/17fa7b87-c106-4449-aa4a-25de518f9d75" />
 
 工具栏里的 **Popup** 用来快速查看安装和连接状态。
-
-## 快速开始
-
-### 推荐：从 Chrome Extension 开始
-
-安装 **Agent Helm Chrome Extension**。
-
-Extension 会检查当前电脑是否已经可以连接 Agent Helm。
-
-<img width="1988" height="1934" alt="Agent Helm install required" src="https://github.com/user-attachments/assets/635dc6ec-429c-4553-ba8e-a9528afeeac3" />
-
-如果本地还没有 Agent Helm，Extension 会显示 **Download Installer**：
-
-- macOS：\`Agent-Helm-Installer-0.1.0.pkg\`
-- Windows x64：\`Agent-Helm-Installer-0.1.0-win32-x64.cmd\`
-
-Installer 与 Extension 使用相同版本，并安装该 Extension Release 固定的 Agent Helm 版本。
-
-按照页面完成安装、连接和授权后，回到 ChatGPT 就可以开始使用。
-
-### Terminal 一键安装
-
-macOS / Linux：
-
-\`\`\`bash
-curl -fsSL https://raw.githubusercontent.com/BeforeWave/agent-helm-extensions/main/install-chrome.sh | sh
-\`\`\`
-
-指定 Extension 版本：
-
-\`\`\`bash
-curl -fsSL https://raw.githubusercontent.com/BeforeWave/agent-helm-extensions/main/install-chrome.sh | sh -s -- 0.1.0
-\`\`\`
-
-Windows x64：
-
-\`\`\`powershell
-irm https://raw.githubusercontent.com/BeforeWave/agent-helm-extensions/main/install-chrome.ps1 | iex
-\`\`\`
-
-指定 Extension 版本：
-
-\`\`\`powershell
-& ([scriptblock]::Create((irm https://raw.githubusercontent.com/BeforeWave/agent-helm-extensions/main/install-chrome.ps1))) -Version 0.1.0
-\`\`\`
-
-Terminal 安装会完成 Node/runtime、Agent Helm 和 Native Messaging bridge，并把匹配的 Extension 解压到 Downloads。最后只需要在 Chrome 中打开 Developer mode，选择 **Load unpacked**。
-
-当前 Windows 支持范围为 Windows x64，即常见 Intel / AMD Windows 10、Windows 11。Windows ARM64 暂不作为正式支持平台。
-
-如果已经安装并配置过 Agent Helm：
-
-\`\`\`bash
-agent-helm setup chrome
-\`\`\`
-
-常用命令：
-
-\`\`\`bash
-agent-helm start
-agent-helm status
-agent-helm doctor
-agent-helm stop
-\`\`\`
 
 ## 本地项目与安全
 
