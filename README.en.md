@@ -2,197 +2,194 @@
   <a href="./README.en.md"><b>English</b></a> | <a href="./README.md">中文</a>
 </p>
 
+<div align="center">
+
 # Agent Helm Extensions
 
-> **Let ChatGPT in your browser work directly with your local projects — and call on your local coding agents when needed.**
+**Say goodbye to copy-pasting and Token quota anxiety. Let ChatGPT on the web connect directly to your local project, run code, and bring in other Agents when needed.**
 
-**Agent Helm Extensions** currently provides the **Agent Helm Chrome Extension**.
+[![Release](https://img.shields.io/github/v/release/BeforeWave/agent-helm-extensions?color=blue\&style=flat-square)](https://github.com/BeforeWave/agent-helm-extensions/releases)
+[![Chrome](https://img.shields.io/badge/Chrome-Extension-green?logo=googlechrome\&style=flat-square)](#-quick-start)
+[![License](https://img.shields.io/github/license/BeforeWave/agent-helm-extensions?style=flat-square)](./LICENSE)
 
-You keep using ChatGPT in your browser as usual.
+</div>
 
-The difference is that ChatGPT can now understand your real project, edit files, run commands, and inspect results. When a task needs more execution power, it can also hand the work off to coding agents already connected on your machine.
+<br />
 
-The Extension associates the current ChatGPT Conversation with the local work happening behind it.
+<p align="center">
+  <img width="1000" alt="Agent Helm Chrome Extension Overview" src="https://github.com/user-attachments/assets/0c65c877-91d2-4453-a986-52d1bd13af5a" />
+</p>
 
-Right from the browser, you can see which project ChatGPT is using, what it has done locally, whether work has been handed off to an Agent, and how that work is progressing.
+---
 
-<img width="1000" alt="Agent Helm Chrome Extension" src="https://github.com/user-attachments/assets/0c65c877-91d2-4453-a986-52d1bd13af5a" />
+## 💡 Why Agent Helm?
 
-## Quick Start
+ChatGPT on the web has strong models, but it normally cannot access your local project, files, or terminal. When working on real codebases, source files, errors, and execution results still have to be moved back and forth between the browser, IDE, and terminal.
 
-### 1. Manually Install the Chrome Extension
+Local Coding Agents can operate directly on the project, but long-running coding work can continuously consume model Tokens and quota.
 
-Download the matching **Agent Helm Chrome Extension** zip from [Releases](https://github.com/BeforeWave/agent-helm-extensions/releases).
+**Agent Helm Extensions** connects both sides:
 
-After extracting it, open this page in Chrome:
+* **Let ChatGPT code directly:** Read and modify local files, run terminal commands, inspect Diagnostics and Git state, and execute builds and tests so the models in `chatgpt.com` can participate directly in local development.
+* **Reduce Token quota pressure:** Use the model capabilities already available in ChatGPT for code understanding, editing, and verification, without configuring an additional usage-based model API key.
+* **Multi-Agent collaboration:** For heavier or longer-running tasks, ChatGPT can hand the already-understood project context and task directly to a local Coding Agent for continued execution.
+* **Independent proxy support:** ChatGPT Tunnel can use its own HTTP / HTTPS proxy without requiring a system-wide VPN.
 
-```text
-chrome://extensions
-```
+---
 
-Enable **Developer mode**, choose **Load unpacked**, and select the extracted Extension directory.
+## ⚡ Quick Start
 
-After installation, the Extension checks whether the current machine can already connect to Agent Helm.
+### 1. One-Command Terminal Install (Recommended)
 
-If Agent Helm is not installed locally, the Extension shows **Download Installer**:
+The install script sets up the required Runtime, the local Agent Helm service, and the Native Messaging Bridge, then extracts the matching Extension into Downloads.
 
-* macOS: `Agent-Helm-Installer-0.1.0.pkg`
-* Windows x64: `Agent-Helm-Installer-0.1.0-win32-x64.cmd`
-
-The Installer and Extension use the same version, and the Installer installs the Agent Helm version pinned by that Extension Release.
-
-Complete the installation, connection, and permission steps shown in the UI, then return to ChatGPT and start working.
-
-<img width="900" alt="Agent Helm install required" src="https://github.com/user-attachments/assets/635dc6ec-429c-4553-ba8e-a9528afeeac3" />
-
-### 2. One-Command Terminal Install
-
-You can also complete the installation directly from a Terminal.
-
-The Terminal installer handles Node/runtime, Agent Helm, and Native Messaging bridge setup, then extracts the matching Extension into Downloads.
-
-After that, you only need to enable Developer mode in Chrome and choose **Load unpacked**.
-
-macOS / Linux:
+**macOS:**
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/BeforeWave/agent-helm-extensions/main/install-chrome.sh | sh
 ```
 
-Install a specific Extension version:
+> Install a specific Extension version:
+> `curl -fsSL https://raw.githubusercontent.com/BeforeWave/agent-helm-extensions/main/install-chrome.sh | sh -s -- 0.1.0`
+
+**Linux (best-effort):**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/BeforeWave/agent-helm-extensions/main/install-chrome.sh | sh -s -- 0.1.0
+curl -fsSL https://raw.githubusercontent.com/BeforeWave/agent-helm-extensions/main/install-chrome.sh | sh
 ```
 
-Windows x64:
+**Windows x64:**
 
 ```powershell
 irm https://raw.githubusercontent.com/BeforeWave/agent-helm-extensions/main/install-chrome.ps1 | iex
 ```
 
-Install a specific Extension version:
+> Install a specific Extension version:
+> `& ([scriptblock]::Create((irm https://raw.githubusercontent.com/BeforeWave/agent-helm-extensions/main/install-chrome.ps1))) -Version 0.1.0`
 
-```powershell
-& ([scriptblock]::Create((irm https://raw.githubusercontent.com/BeforeWave/agent-helm-extensions/main/install-chrome.ps1))) -Version 0.1.0
-```
+After the script finishes, open `chrome://extensions` in Chrome, enable **Developer mode**, click **Load unpacked**, and select the Extension directory in Downloads.
 
-Current Windows support is Windows x64, covering common Intel / AMD Windows 10 and Windows 11 systems. Windows ARM64 is not yet a supported target.
+---
+
+### 2. Manually Install the Chrome Extension
+
+1. Download the matching **Agent Helm Chrome Extension** zip from [Releases](https://github.com/BeforeWave/agent-helm-extensions/releases) and extract it.
+2. Open `chrome://extensions` in Chrome.
+3. Enable **Developer mode**, click **Load unpacked**, and select the extracted Extension directory.
+4. The Extension checks the local Agent Helm installation automatically. If Agent Helm is missing, it shows **Download Installer**:
+
+* **macOS:** `Agent-Helm-Installer-<version>.pkg`
+* **Windows x64:** `Agent-Helm-Installer-<version>-win32-x64.cmd`
+
+<p align="center">
+  <img width="900" alt="Agent Helm install required" src="https://github.com/user-attachments/assets/635dc6ec-429c-4553-ba8e-a9528afeeac3" />
+</p>
+
+Follow the guidance in the Extension to complete Agent Helm and ChatGPT Tunnel setup.
+
+---
 
 ### 3. If Agent Helm Is Already Installed
 
-If you already installed and configured Agent Helm from the command line, you can configure the Chrome integration directly:
+If Agent Helm is already installed and configured, set up the Chrome integration directly:
 
 ```bash
 agent-helm setup chrome
 ```
 
-For more Agent Helm configuration and usage, see [Agent Helm](https://github.com/BeforeWave/agent-helm#2-configure).
+For more configuration and usage details, see [Agent Helm](https://github.com/BeforeWave/agent-helm#2-configure).
 
-Then return to the Extension, confirm that Agent Helm is connected, and start using it from ChatGPT.
+---
 
-## Start from the ChatGPT You Already Use
+## 🛠️ Workflow & Core Features
 
-Open a Conversation on `chatgpt.com`. The Extension identifies the current Conversation and associates it with the corresponding local work.
+### 1. Let ChatGPT Work Directly on Local Projects
 
-Through Agent Helm, ChatGPT in your browser can:
+Open a Conversation on `chatgpt.com`. The Extension detects the current conversation and shows the local work associated with it.
 
-* Understand the current project
-* Find and read relevant files
-* Edit files
-* Run commands and development tools
+Through Agent Helm, ChatGPT can directly:
+
+* Understand the project structure
+* Find and read code
+* Modify local files
+* Run terminal commands and development tools
 * Inspect Diagnostics and Git state
-* Check build, test, and execution results
-* Hand work off to local Coding Agents
-* Inspect the real results again after the Agent finishes
+* Run builds and tests
+* Check real execution results
 
-You no longer need to repeatedly paste code, errors, and project context into the chat, or reorganize the task before asking a local Agent to continue.
+ChatGPT can handle the full coding loop from understanding to editing to verification, without requiring you to manually move project context into the conversation.
 
-## Use Your Local Coding Agents
+### 2. Call Your Local Coding Agents When Needed
 
-When a task is better suited for a Coding Agent to continue executing, ChatGPT can directly call a local Agent already connected through Agent Helm.
+For larger tasks or longer-running execution, ChatGPT can directly call a local Coding Agent already connected through Agent Helm.
 
-ChatGPT can first understand the project and the problem, then hand the work over.
-
-You can still see:
+ChatGPT can first understand the project, problem, and solution, then hand the task over. During execution, you can still see:
 
 * Which Agent received the task
 * The associated Agent Session
-* Current execution status
-* Recent activity
+* Current execution status and recent activity
 * What ChatGPT and the Agent have each done
 
-This keeps direct work by ChatGPT and execution by local Agents from becoming two disconnected workflows.
+Direct work by ChatGPT and collaboration with local Agents stay within the same workflow.
 
-### See the Local Work Behind the Current Conversation
+### 3. Visual Status & Work History
 
-The Extension associates the current ChatGPT Conversation with the corresponding local work.
+The Extension associates the current ChatGPT Conversation with the corresponding local work:
 
-You can see:
+* **Current work awareness:** See the current project / Worktree, local actions performed by ChatGPT, and associated Agent Sessions.
+* **Work History:** Return to previous work after leaving the original Conversation and review what happened during execution.
 
-* The project / Worktree in use
-* Local actions performed by ChatGPT
-* Current work status and recent activity
-* Whether work has been handed off to a local Agent
-* The associated Agent Session
-* Previous Work History
+<p align="center">
+  <img width="900" alt="Agent Helm Work Detail" src="https://github.com/user-attachments/assets/fd371ede-b590-434c-ab4e-34610df3999f" />
+</p>
 
-<img width="900" alt="Agent Helm Work Detail" src="https://github.com/user-attachments/assets/fd371ede-b590-434c-ab4e-34610df3999f" />
+### 4. Side Panel Management
 
-Even after leaving the original Conversation, you can return through Work History and see what happened locally.
+The **Side Panel** is the main management interface. From the browser, you can directly view and manage:
 
-### Manage Agent Helm from the Browser
-
-The **Side Panel** is the main management interface.
-
-From there, you can view and manage:
-
-* Work associated with the current ChatGPT Conversation
-* Local projects and Worktrees
+* Current Work
+* Projects / Worktrees
 * Connected Coding Agents
 * Agent Sessions
 * Work History
 * Agent Helm connection and runtime status
+* ChatGPT Tunnel status
 
-<img width="420" alt="Agent Helm Side Panel" src="https://github.com/user-attachments/assets/17fa7b87-c106-4449-aa4a-25de518f9d75" />
+<p align="center">
+  <img width="420" alt="Agent Helm Side Panel" src="https://github.com/user-attachments/assets/17fa7b87-c106-4449-aa4a-25de518f9d75" />
+</p>
 
-The toolbar **Popup** provides a quick view of installation and connection status.
+---
 
-### Local Projects and Security
+## 🔒 Privacy & Security Sandbox
 
-Your projects and execution environment remain on your machine.
+Your projects and actual execution environment remain on your local machine:
 
-While working on a task, ChatGPT receives the local information needed to complete it, such as relevant files, project structure, Diagnostics, Git state, command output, and test results.
+* **Permission control:** Which projects ChatGPT can access and which operations it can perform are determined by the permissions and capabilities granted to the current Workspace.
+* **Sandboxed execution:** When ChatGPT performs local operations directly, it runs under Agent Helm permissions and Sandbox protection. Tasks delegated to local Coding Agents run under the permissions and Sandbox configuration of those Agents.
+* **Minimal browser access:** Access to `chatgpt.com` is only used to identify the current Conversation and associate it with local work. The Extension does not need to read browsing information from other websites or the contents of ChatGPT Conversations.
 
-What it can access and execute depends on the currently authorized Workspace, capabilities, and permissions.
+### Browser Permissions
 
-When ChatGPT performs local operations directly, Agent Helm provides the permissions and Sandbox protection.
+| Permission           | Purpose                                                           |
+| -------------------- | ----------------------------------------------------------------- |
+| **Native Messaging** | Connect to the local Agent Helm runtime                           |
+| **Side Panel**       | Provide the main browser management interface                     |
+| **Storage & Alarms** | Store local Extension state and perform background status updates |
+| **Notifications**    | Show work completion and status updates                           |
+| **Downloads**        | Requested only when downloading the Agent Helm Installer          |
 
-When work is handed off to a local Coding Agent, that Agent runs under its own permissions and Sandbox configuration.
+---
 
-## Browser Permissions
+## 🔗 Related Projects
 
-Agent Helm Chrome Extension only requests browser permissions required by the product:
+| Project                                                            | Relationship to this project                                                                                                                   |
+| ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Agent Helm](https://github.com/BeforeWave/agent-helm)             | The local runtime used by this project, providing code intelligence, file and command operations, Sandbox protection, and Agent collaboration. |
+| [DSH with ChatGPT](https://github.com/BeforeWave/dsh-with-chatgpt) | Agent Helm's DSH integration, allowing ChatGPT to hand tasks off to DSH for execution.                                                         |
 
-* **Native Messaging** — connects to the local Agent Helm installation
-* **Side Panel** — provides the main browser interface
-* **Storage** — stores Extension state locally
-* **Notifications** — shows work status notifications
-* **Alarms** — handles required background status updates
+---
 
-Download permission is only requested when needed to download the Agent Helm Installer.
+## 📌 Project Status
 
-Access to `chatgpt.com` is used to identify the current ChatGPT Conversation and associate it with the corresponding local work.
-
-The Extension does not need access to your browsing activity on other websites, and it does not need to read the contents of your ChatGPT Conversations.
-
-## Related Projects
-
-| Project                                                            | Purpose                                                                                                |
-| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
-| [Agent Helm](https://github.com/BeforeWave/agent-helm)             | Lets ChatGPT in your browser work directly with local projects and use local Coding Agents when needed |
-| [DSH with ChatGPT](https://github.com/BeforeWave/dsh-with-chatgpt) | Lets ChatGPT in your browser work with local projects and hand tasks off to DSH when needed            |
-
-## Project Status
-
-Agent Helm Extensions is under active development.
+Agent Helm Extensions is under active development and iteration. Issues and Pull Requests are welcome.
