@@ -20,13 +20,11 @@ Extension 会把当前 ChatGPT Conversation 和本地正在发生的工作关联
 
 ## 快速开始
 
-### 1. 安装 Chrome Extension
+### 1. 手动安装 Chrome Extension
 
-安装 **Agent Helm Chrome Extension**。
+从[release](https://github.com/BeforeWave/agent-helm-extensions/releases)里下载安装 **Agent Helm Chrome Extension**。
 
 Extension 会检查当前电脑是否已经可以连接 Agent Helm。
-
-<img width="900" alt="Agent Helm install required" src="https://github.com/user-attachments/assets/635dc6ec-429c-4553-ba8e-a9528afeeac3" />
 
 如果本地还没有 Agent Helm，Extension 会显示 **Download Installer**：
 
@@ -36,8 +34,14 @@ Extension 会检查当前电脑是否已经可以连接 Agent Helm。
 Installer 与 Extension 使用相同版本，并安装该 Extension Release 固定的 Agent Helm 版本。
 
 按照页面完成安装、连接和授权后，回到 ChatGPT 就可以开始使用。
+<img width="900" alt="Agent Helm install required" src="https://github.com/user-attachments/assets/635dc6ec-429c-4553-ba8e-a9528afeeac3" />
+
 
 ### 2. Terminal 一键安装
+
+Terminal 安装会完成 Node/runtime、Agent Helm 和 Native Messaging bridge，并把匹配的 Extension 解压到 Downloads。最后只需要在 Chrome 中打开 Developer mode，选择 **Load unpacked**。
+
+当前 Windows 支持范围为 Windows x64，即常见 Intel / AMD Windows 10、Windows 11。Windows ARM64 暂不作为正式支持平台。
 
 macOS / Linux：
 
@@ -63,27 +67,15 @@ irm https://raw.githubusercontent.com/BeforeWave/agent-helm-extensions/main/inst
 & ([scriptblock]::Create((irm https://raw.githubusercontent.com/BeforeWave/agent-helm-extensions/main/install-chrome.ps1))) -Version 0.1.0
 ```
 
-Terminal 安装会完成 Node/runtime、Agent Helm 和 Native Messaging bridge，并把匹配的 Extension 解压到 Downloads。最后只需要在 Chrome 中打开 Developer mode，选择 **Load unpacked**。
 
-当前 Windows 支持范围为 Windows x64，即常见 Intel / AMD Windows 10、Windows 11。Windows ARM64 暂不作为正式支持平台。
+### 3. 高级配置
 
-### 3. 完成配置并验证
 
-如果已经安装并配置过 Agent Helm：
+如果是先安装的命令行 Agent Helm使用setup chrome即可，更多使用可以参考 [Agent Helm](https://github.com/BeforeWave/agent-helm#2-configure)
 
 ```bash
 agent-helm setup chrome
 ```
-
-检查本地连接：
-
-```bash
-agent-helm start
-agent-helm status
-agent-helm doctor
-```
-
-连接完成后，回到 ChatGPT 就可以开始使用。之后需要停止 Agent Helm 时，运行 `agent-helm stop`。
 
 ## 从你正在用的 ChatGPT 开始
 
@@ -118,7 +110,7 @@ ChatGPT 可以先把项目和问题搞清楚，再把任务交出去。
 
 这样，ChatGPT 自己处理和本地 Agent 执行，不再是两套互相割裂的工作。
 
-## 当前 Conversation 的本地工作，一眼就能看到
+### 当前 Conversation 的本地工作，一眼就能看到
 
 Extension 会把当前 ChatGPT Conversation 和对应的本地工作关联起来。
 
@@ -135,7 +127,7 @@ Extension 会把当前 ChatGPT Conversation 和对应的本地工作关联起来
 
 即使你已经离开原来的 Conversation，之后也可以从 Work History 里重新找到这项工作，看看当时在本地发生了什么。
 
-## 在浏览器里管理 Agent Helm
+### 在浏览器里管理 Agent Helm
 
 **Side Panel** 是主要的管理入口。
 
@@ -152,7 +144,7 @@ Extension 会把当前 ChatGPT Conversation 和对应的本地工作关联起来
 
 工具栏里的 **Popup** 用来快速查看安装和连接状态。
 
-## 本地项目与安全
+### 本地项目与安全
 
 项目和实际执行环境仍然在你的电脑上。
 
