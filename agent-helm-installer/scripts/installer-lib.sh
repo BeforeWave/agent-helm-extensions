@@ -6,16 +6,37 @@ agent_helm_fail() {
   exit 1
 }
 
+agent_helm_stage() {
+  printf '%s\n' "Agent Helm Installer [$1/4] $2"
+}
+
 agent_helm_extension_id_from_package() {
   package_path=${1:-${PACKAGE_PATH:-}}
-  [ -n "$package_path" ] || agent_helm_fail "Package path is unavailable. Download the installer from the Agent Helm Chrome Extension."
+  default_extension_id=${2:-}
+  [ -n "$package_path" ] || agent_helm_fail "Package path is unavailable."
   package_name=${package_path##*/}
-  extension_id=$(printf '%s\n' "$package_name" | sed -n 's/^Agent-Helm-Installer-[0-9][A-Za-z0-9._+-]*--chrome-\([a-p][a-p]*\)\.pkg$/\1/p')
-  case "$extension_id" in
-    ????????????????????????????????) ;;
-    *) agent_helm_fail "Chrome Extension ID is missing from the installer filename. Download the installer again from the Agent Helm Chrome Extension." ;;
+  case "$package_name" in
+    Agent-Helm-Installer-[0-9]*.pkg)
+      extension_id=$(printf '%s\n' "$package_name" | sed -n 's/^Agent-Helm-Installer-[0-9][A-Za-z0-9._+-]*--chrome-\([a-p][a-p]*\)\.pkg$/\1/p')
+      if [ -n "$extension_id" ]; then
+        case "$extension_id" in
+          ????????????????????????????????) printf '%s\n' "$extension_id"; return 0 ;;
+          *) agent_helm_fail "Chrome Extension ID in the installer filename is invalid." ;;
+        esac
+      fi
+      printf '%s\n' "$package_name" | grep -Eq '^Agent-Helm-Installer-[0-9][A-Za-z0-9._+-]*\.pkg$' \
+        || agent_helm_fail "Installer filename is invalid."
+      if [ -n "$default_extension_id" ]; then
+        case "$default_extension_id" in
+          ????????????????????????????????) printf '%s\n' "$default_extension_id" ;;
+          *) agent_helm_fail "Default Chrome Extension ID is invalid." ;;
+        esac
+      else
+        printf '%s\n' ''
+      fi
+      ;;
+    *) agent_helm_fail "Installer filename is invalid." ;;
   esac
-  printf '%s\n' "$extension_id"
 }
 
 agent_helm_console_user() {
@@ -34,23 +55,27 @@ agent_helm_user_home() {
 }
 
 agent_helm_preflight() {
+  package_path=$1
+  default_extension_id=${2:-}
   [ "$(/usr/bin/uname -s)" = Darwin ] || agent_helm_fail "This installer supports macOS only."
   [ -x /usr/bin/sudo ] || agent_helm_fail "macOS sudo is required to enter the signed-in user's install context."
   [ -x /usr/bin/stat ] || agent_helm_fail "macOS stat is required."
   [ -x /usr/bin/dscl ] || agent_helm_fail "macOS directory services are required."
-  agent_helm_extension_id_from_package "$1" >/dev/null
+  agent_helm_extension_id_from_package "$package_path" "$default_extension_id" >/dev/null
   user=$(agent_helm_console_user)
   agent_helm_user_home "$user" >/dev/null
 }
 
 agent_helm_postflight() {
   home=$1
-  extension_id=$2
+  extension_id=${2:-}
   cli="$home/.agent-helm/bin/agent-helm"
-  manifest="$home/Library/Application Support/Google/Chrome/NativeMessagingHosts/com.beforewave.agent_helm.json"
   [ -x "$cli" ] || agent_helm_fail "Agent Helm CLI postflight failed: $cli is missing."
   "$cli" --version >/dev/null 2>&1 || agent_helm_fail "Agent Helm CLI postflight failed: installed runtime cannot execute."
-  [ -f "$manifest" ] || agent_helm_fail "Native Messaging postflight failed: host manifest is missing."
-  /usr/bin/grep -F "chrome-extension://$extension_id/" "$manifest" >/dev/null 2>&1 \
-    || agent_helm_fail "Native Messaging postflight failed: current Chrome Extension ID was not registered."
+  if [ -n "$extension_id" ]; then
+    manifest="$home/Library/Application Support/Google/Chrome/NativeMessagingHosts/com.beforewave.agent_helm.json"
+    [ -f "$manifest" ] || agent_helm_fail "Native Messaging postflight failed: host manifest is missing."
+    /usr/bin/grep -F "chrome-extension://$extension_id/" "$manifest" >/dev/null 2>&1 \
+      || agent_helm_fail "Native Messaging postflight failed: current Chrome Extension ID was not registered."
+  fi
 }

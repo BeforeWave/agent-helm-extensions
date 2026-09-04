@@ -2,9 +2,14 @@
 set -eu
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 . "$SCRIPT_DIR/installer-lib.sh"
-. "$SCRIPT_DIR/verify-installer-artifact.sh"
+
 package_path=${1:-${PACKAGE_PATH:-}}
+agent_helm_stage 1 "Runtime: preflight and embedded runtime verification"
 agent_helm_preflight "$package_path"
-agent_helm_verify_installer_artifact "__AGENT_HELM_RELEASE_MANIFEST_URL__" "__AGENT_HELM_VERSION__" "$package_path"
-printf '%s\n' "Agent Helm Installer: artifact integrity verified."
+runtime_bundle="$SCRIPT_DIR/agent-helm-runtime.tgz"
+[ -f "$runtime_bundle" ] || agent_helm_fail "Bundled Agent Helm runtime is missing from the installer."
+expected_sha="__AGENT_HELM_RUNTIME_SHA256__"
+actual_sha=$(/usr/bin/shasum -a 256 "$runtime_bundle" | /usr/bin/awk '{print $1}')
+[ "$actual_sha" = "$expected_sha" ] || agent_helm_fail "Bundled Agent Helm runtime SHA-256 verification failed."
+printf '%s\n' "Agent Helm Installer: bundled runtime integrity verified."
 exit 0

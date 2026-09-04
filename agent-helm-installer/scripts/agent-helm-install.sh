@@ -1,13 +1,12 @@
 #!/bin/sh
 set -eu
 
-# Public npm/CDN entry point:
-# curl -fsSL https://unpkg.com/@beforewave/agent-helm@latest/install.sh | sh
+# Package-owned backend used by the macOS PKG. Public curl installation is provided by BeforeWave/agent-helm install.sh.
 
 PACKAGE=${AGENT_HELM_PACKAGE:-@beforewave/agent-helm}
 VERSION=${AGENT_HELM_VERSION:-latest}
-RELEASE_MANIFEST_URL=${AGENT_HELM_RELEASE_MANIFEST_URL:-}
-RELEASE_RESOLVER=${AGENT_HELM_RELEASE_RESOLVER:-}
+RUNTIME_BUNDLE=${AGENT_HELM_RUNTIME_BUNDLE:-}
+RUNTIME_BUNDLE_SHA256=${AGENT_HELM_RUNTIME_BUNDLE_SHA256:-}
 PREFIX=${AGENT_HELM_INSTALL_PREFIX:-$HOME/.agent-helm/npm}
 NODE_VERSION=22.23.2
 NODE_RUNTIME_ROOT=$HOME/.agent-helm/runtime/node
@@ -23,7 +22,7 @@ fail() {
 case "$(uname -s)" in
   Darwin) NODE_OS=darwin; NODE_EXT=tar.gz ;;
   Linux) NODE_OS=linux; NODE_EXT=tar.xz ;;
-  *) fail "Chrome setup currently supports macOS and Linux." ;;
+  *) fail "Agent Helm installer currently supports macOS and Linux." ;;
 esac
 
 case "$(uname -m)" in
@@ -107,31 +106,44 @@ fi
 NODE_BIN_DIR=${NODE_BIN%/*}
 PATH="$NODE_BIN_DIR:${PATH:-/usr/bin:/bin}"
 export PATH
-if ! command -v npm >/dev/null 2>&1; then
-  if [ "$NODE_BIN" != "$MANAGED_NODE" ]; then
-    printf "%s\n" "Agent Helm: the existing Node.js runtime does not provide npm; switching to the managed runtime."
-    if ! usable_node "$MANAGED_NODE"; then install_managed_node; fi
-    NODE_BIN=$MANAGED_NODE
-    NODE_BIN_DIR=${NODE_BIN%/*}
-    PATH="$NODE_BIN_DIR:${PATH:-/usr/bin:/bin}"
-    export PATH
+if [ -z "$RUNTIME_BUNDLE" ]; then
+  if ! command -v npm >/dev/null 2>&1; then
+    if [ "$NODE_BIN" != "$MANAGED_NODE" ]; then
+      printf "%s\n" "Agent Helm: the existing Node.js runtime does not provide npm; switching to the managed runtime."
+      if ! usable_node "$MANAGED_NODE"; then install_managed_node; fi
+      NODE_BIN=$MANAGED_NODE
+      NODE_BIN_DIR=${NODE_BIN%/*}
+      PATH="$NODE_BIN_DIR:${PATH:-/usr/bin:/bin}"
+      export PATH
+    fi
   fi
+  command -v npm >/dev/null 2>&1 || fail "npm was not found next to the selected Node.js runtime."
 fi
-command -v npm >/dev/null 2>&1 || fail "npm was not found next to the selected Node.js runtime."
 
-mkdir -p "$PREFIX" "$HOME/.agent-helm/bin"
-if [ -n "$RELEASE_MANIFEST_URL" ]; then
-  [ "$VERSION" != latest ] || fail "A release manifest requires an explicit Agent Helm version."
-  [ -f "$RELEASE_RESOLVER" ] || fail "Release package resolver is unavailable."
-  RESOLVE_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/agent-helm-package.XXXXXX")
-  trap 'rm -rf "$RESOLVE_ROOT"' EXIT HUP INT TERM
-  printf "%s\n" "Resolving Agent Helm ${VERSION} from the unified release manifest..."
-  PACKAGE_ARCHIVE=$("$NODE_BIN" "$RELEASE_RESOLVER" "$RELEASE_MANIFEST_URL" "$VERSION" "$PACKAGE" "$RESOLVE_ROOT") \
-    || fail "Could not resolve the Agent Helm package from release-manifest.json."
-  [ -f "$PACKAGE_ARCHIVE" ] || fail "Resolved Agent Helm package is missing."
-  npm install --prefix "$PREFIX" "$PACKAGE_ARCHIVE" --no-audit --no-fund
+mkdir -p "$HOME/.agent-helm" "$HOME/.agent-helm/bin"
+if [ -n "$RUNTIME_BUNDLE" ]; then
+  [ "$VERSION" != latest ] || fail "A bundled runtime requires an explicit Agent Helm version."
+  [ -f "$RUNTIME_BUNDLE" ] || fail "Bundled Agent Helm runtime is missing."
+  printf '%s\n' "$RUNTIME_BUNDLE_SHA256" | grep -Eq '^[0-9a-fA-F]{64}$' || fail "Bundled Agent Helm runtime SHA-256 is invalid."
+  EXPECTED_RUNTIME_SHA=$(printf '%s' "$RUNTIME_BUNDLE_SHA256" | tr 'A-F' 'a-f')
+  ACTUAL_RUNTIME_SHA=$(checksum_file "$RUNTIME_BUNDLE")
+  [ "$ACTUAL_RUNTIME_SHA" = "$EXPECTED_RUNTIME_SHA" ] || fail "Bundled Agent Helm runtime SHA-256 verification failed."
+  INSTALL_ROOT=$(mktemp -d "$HOME/.agent-helm/npm.install.XXXXXX")
+  trap 'rm -rf "$INSTALL_ROOT"' EXIT HUP INT TERM
+  printf "%s\n" "Installing bundled Agent Helm ${VERSION} runtime..."
+  tar -xf "$RUNTIME_BUNDLE" -C "$INSTALL_ROOT"
+  [ -f "$INSTALL_ROOT/node_modules/$PACKAGE/lib/cli.js" ] || fail "Bundled Agent Helm runtime does not contain the CLI."
+  BACKUP_PREFIX="$PREFIX.previous"
+  rm -rf "$BACKUP_PREFIX"
+  if [ -e "$PREFIX" ]; then mv "$PREFIX" "$BACKUP_PREFIX"; fi
+  if mv "$INSTALL_ROOT" "$PREFIX"; then
+    rm -rf "$BACKUP_PREFIX"
+  else
+    rm -rf "$PREFIX"
+    if [ -e "$BACKUP_PREFIX" ]; then mv "$BACKUP_PREFIX" "$PREFIX"; fi
+    fail "Could not activate the bundled Agent Helm runtime."
+  fi
   trap - EXIT HUP INT TERM
-  rm -rf "$RESOLVE_ROOT"
 else
   printf "%s\n" "Installing ${PACKAGE}@${VERSION}..."
   npm install --prefix "$PREFIX" "${PACKAGE}@${VERSION}" --no-audit --no-fund
@@ -164,5 +176,5 @@ if [ -n "${AGENT_HELM_CHROME_EXTENSION_ID:-}" ]; then
   exec "$CLI_LAUNCHER" install-chrome-native-host --extension-id "$AGENT_HELM_CHROME_EXTENSION_ID"
 fi
 
-printf "%s\n" "Agent Helm installed. Opening Chrome setup..."
-exec "$CLI_LAUNCHER" setup chrome
+printf "%s\n" "Agent Helm runtime installed."
+exit 0
