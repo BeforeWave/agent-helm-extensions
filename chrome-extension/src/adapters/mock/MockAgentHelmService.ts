@@ -1,4 +1,4 @@
-import type { TunnelSetupValues } from '@beforewave/agent-helm-ui-contract'
+import { tunnelSetupLinks, type TunnelSetupValues } from '@beforewave/agent-helm-ui-contract'
 import type { AgentHelmServiceAdapter } from '../../models/adapters'
 import type {
   CapabilityKey,
@@ -72,18 +72,22 @@ function makeDetail(summary: WorkHistorySummary, originUrl: string, task: string
         timestamp: '2026-08-28T09:05:00.000Z',
         actor: 'chatgpt',
         actorName: 'ChatGPT',
-        action: 'Inspect',
-        primary: summary.workspaceTitle ?? 'Workspace',
-        secondary: 'Current implementation',
+        presentation: {
+          title: { kind: 'label', label: 'action.inspect' },
+          primary: summary.workspaceTitle ?? 'Workspace',
+          details: [{ kind: 'text', text: 'Current implementation' }],
+        },
       },
       {
         id: `${summary.id}:activity`,
         timestamp: summary.lastActivityAt,
         actor: summary.delegationCount ? 'subagent' : 'chatgpt',
         actorName: summary.delegationCount ? 'DSH' : 'ChatGPT',
-        action: summary.delegationCount ? 'Status update' : 'Edit',
-        primary: summary.title,
-        secondary: summary.runtimeLabel,
+        presentation: {
+          title: { kind: 'label', label: summary.delegationCount ? 'delegation.status' : 'action.edit' },
+          primary: summary.title,
+          details: summary.runtimeLabel ? [{ kind: 'text', text: summary.runtimeLabel }] : [],
+        },
       },
     ],
     localDeepLink: null,
@@ -107,7 +111,7 @@ export class MockAgentHelmService implements AgentHelmServiceAdapter {
     ],
     settings: [
       { id: 'local-agent-lsp', label: 'Local Agent LSP', kind: 'toggle', enabled: true, configurable: true, state: 'running' },
-      { id: 'tunnel', label: 'Tunnel', kind: 'status', state: 'running', tunnelId: 'tunnel_preview', organizationId: 'org_preview', apiKeyConfigured: true, dependencyAvailable: true },
+      { id: 'tunnel', label: 'Tunnel', kind: 'status', state: 'running', tunnelId: 'tunnel_preview', organizationId: 'org_preview', apiKeyConfigured: true, proxyConfigured: true, proxyUrl: 'http://127.0.0.1:7890', dependencyAvailable: true, adminUrl: tunnelSetupLinks.tunnels },
       { id: 'core', label: 'Agent Helm Service', kind: 'toggle', enabled: true, configurable: true, state: 'running' },
     ],
     workspaces: [
@@ -200,6 +204,8 @@ export class MockAgentHelmService implements AgentHelmServiceAdapter {
     tunnel.tunnelId = input.tunnelId.trim()
     tunnel.organizationId = input.organizationId?.trim() || undefined
     tunnel.apiKeyConfigured = Boolean(input.apiKey?.trim()) || tunnel.apiKeyConfigured === true
+    tunnel.proxyConfigured = Boolean(input.proxyUrl?.trim())
+    tunnel.proxyUrl = input.proxyUrl?.trim() || undefined
     tunnel.state = tunnel.apiKeyConfigured && tunnel.tunnelId ? 'running' : 'error'
     return this.getSnapshot()
   }

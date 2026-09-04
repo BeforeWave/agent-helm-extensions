@@ -15,6 +15,7 @@ import { deriveExtensionConnectionPresentation } from '../models/controlPlane'
 import { ExtensionConnectionStatus } from '../components/Status'
 
 import { CoreSettingControl } from '../components/ExtensionSettingsControls'
+import { LoadingSurface } from '../components/LoadingSurface'
 
 export function PopupApp({ client }: { client: BrowserControlPlaneClient }): React.JSX.Element {
   const { snapshot, setSnapshot, error, setError, loading } = useControlPlaneSnapshot(client)
@@ -55,7 +56,7 @@ export function PopupApp({ client }: { client: BrowserControlPlaneClient }): Rea
   }
 
   const presentation = deriveExtensionConnectionPresentation(snapshot, !snapshot && error ? error : null)
-  const visibleIssue = error ?? (presentation.state === 'error' ? presentation.issue : undefined)
+  const visibleIssue = error ?? undefined
 
   const openPanel = async () => {
     try {
@@ -80,11 +81,10 @@ export function PopupApp({ client }: { client: BrowserControlPlaneClient }): Rea
         </div>
 
         {visibleIssue ? <div className="error-banner">{visibleIssue}</div> : null}
-        {loading && !snapshot ? (
-          <div className="unavailable-state">{t('loading')}</div>
-        ) : (
+        <LoadingSurface loading={loading && !snapshot} label={t('loading')}>
           <SharedExtensionSettingsControls
             snapshot={snapshot}
+            loading={loading && !snapshot}
             pending={pending}
             includeCoreRow={false}
             showInstallGuidance
@@ -99,7 +99,7 @@ export function PopupApp({ client }: { client: BrowserControlPlaneClient }): Rea
               void client.downloadFile(url, filename).catch((cause) => setError(cause instanceof Error ? cause.message : String(cause)))
             }}
           />
-        )}
+        </LoadingSurface>
       </div>
 
       <button type="button" className="popup-panel-entry" onClick={() => { void openPanel() }}>

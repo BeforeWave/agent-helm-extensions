@@ -1,6 +1,6 @@
 import { t } from '../../locale'
-import { normalizeWorkHistorySession, workHistoryTimelinePurpose, type TunnelSetupValues } from '@beforewave/agent-helm-ui-contract'
-import { createWorkHistorySessionDetailModel, createWorkHistorySessionListItem, workHistoryTimelineExecutionDetail, WORK_HISTORY_PAGE_SIZE } from '../../models/workHistory'
+import { normalizeWorkHistorySession, normalizeWorkHistoryTimelinePresentation, type TunnelSetupValues } from '@beforewave/agent-helm-ui-contract'
+import { createWorkHistorySessionDetailModel, createWorkHistorySessionListItem, WORK_HISTORY_PAGE_SIZE } from '../../models/workHistory'
 import type { AgentHelmServiceAdapter } from '../../models/adapters'
 import type { CapabilityKey, ControlPlaneSnapshot, DependencyName, PageContext, WorkHistoryDetail } from '../../models/controlPlane'
 import { NativeMessagingTransport } from './NativeMessagingTransport'
@@ -76,22 +76,12 @@ function projectTimeline(value: unknown): WorkTimelineItem | undefined {
   const timestamp = stringValue(item.timestamp)
   if (!id || !timestamp) return undefined
   const actor = item.actor === 'subagent' ? 'subagent' : 'chatgpt'
-  const error = record(item.error)
-  const primary = workHistoryTimelineExecutionDetail(item) ?? stringValue(item.title)
-  const secondary = stringValue(error.message) ?? stringValue(item.requirement) ?? stringValue(item.message)
-  const status = stringValue(item.status)
-  const durationMs = typeof item.durationMs === 'number' && Number.isFinite(item.durationMs) ? item.durationMs : undefined
-  const purpose = workHistoryTimelinePurpose(item)
   return {
     id,
     timestamp,
     actor,
     ...(stringValue(item.actorName) ? { actorName: stringValue(item.actorName)! } : {}),
-    action: purpose ?? stringValue(item.actionType) ?? stringValue(item.kind) ?? 'activity',
-    ...(primary ? { primary } : {}),
-    ...(secondary ? { secondary } : {}),
-    ...(status ? { status } : {}),
-    ...(durationMs === undefined ? {} : { durationMs }),
+    presentation: normalizeWorkHistoryTimelinePresentation(item),
   }
 }
 
@@ -201,6 +191,8 @@ export function projectNativeSnapshot(healthValue: unknown, summariesValue: unkn
         ...(stringValue(tunnel.tunnelId) ? { tunnelId: stringValue(tunnel.tunnelId)! } : {}),
         ...(stringValue(tunnel.organizationId) ? { organizationId: stringValue(tunnel.organizationId)! } : {}),
         apiKeyConfigured: booleanValue(tunnel.apiKeyConfigured),
+        ...(typeof tunnel.proxyConfigured === 'boolean' ? { proxyConfigured: tunnel.proxyConfigured } : {}),
+        ...(stringValue(tunnel.proxyUrl) ? { proxyUrl: stringValue(tunnel.proxyUrl)! } : {}),
         dependencyAvailable: tunnelClientAvailable,
         ...(dependencies.tunnelClient.state === 'unavailable' && dependencies.tunnelClient.installUrl ? { installUrl: dependencies.tunnelClient.installUrl } : {}),
         ...(stringValue(tunnel.adminUrl) ? { adminUrl: stringValue(tunnel.adminUrl)! } : {}),
@@ -288,7 +280,7 @@ export class NativeAgentHelmService implements AgentHelmServiceAdapter {
     } catch (error) {
       const healthError = error instanceof Error ? error.message : String(error)
       if (/Native Messaging request timed out/i.test(healthError)) {
-        return unavailableSnapshot({ state: 'unavailable', message: healthError })
+        return unavailableSnapshot({ state: 'unavailable', message: t('extensionServiceNoResponse') })
       }
       try {
         const daemonProbe = await this.transport.daemonProbe()

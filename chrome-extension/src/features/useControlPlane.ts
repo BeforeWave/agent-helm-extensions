@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { BrowserControlPlaneClient } from '../client/BrowserControlPlaneClient'
 import type { ControlPlaneSnapshot, PageContext, WorkHistorySummary } from '../models/controlPlane'
 
@@ -30,23 +30,49 @@ export function useControlPlaneSnapshot(client: BrowserControlPlaneClient) {
 }
 
 export function usePageContext(client: BrowserControlPlaneClient) {
-  const [pageContext, setPageContext] = useState<PageContext | null>(null)
+  const [state, setState] = useState<{ value: PageContext | null; resolved: boolean }>({ value: null, resolved: false })
 
   useEffect(() => {
     let cancelled = false
-    void client.getCurrentPageContext().then((value) => { if (!cancelled) setPageContext(value) }).catch(() => {})
-    const unsubscribe = client.subscribePageContext((value) => { if (!cancelled) setPageContext(value) })
+    let subscriptionObserved = false
+    const unsubscribe = client.subscribePageContext((value) => {
+      subscriptionObserved = true
+      if (!cancelled) setState({ value, resolved: true })
+    })
+    void client.getCurrentPageContext().then((value) => {
+      if (!cancelled && !subscriptionObserved) setState({ value, resolved: true })
+    }).catch(() => {
+      if (!cancelled && !subscriptionObserved) setState({ value: null, resolved: true })
+    })
     return () => {
       cancelled = true
       unsubscribe()
     }
   }, [client])
 
-  return pageContext
+  return state
 }
 
-export function useCurrentConversationWork(client: BrowserControlPlaneClient, pageContext: PageContext | null) {
+export function isCurrentConversationResolved(input: {
+  pageContextResolved: boolean
+  currentUrl: string | null
+  lookupUrl: string | null
+  lookupResolved: boolean
+}): boolean {
+  return input.pageContextResolved && (
+    input.currentUrl === null
+    || (input.lookupUrl === input.currentUrl && input.lookupResolved)
+  )
+}
+
+export function useCurrentConversationWork(
+  client: BrowserControlPlaneClient,
+  pageContext: PageContext | null,
+  pageContextResolved: boolean,
+) {
   const currentUrl = pageContext?.conversationUrl ?? null
+  const pageContextRef = useRef(pageContext)
+  pageContextRef.current = pageContext
   const [lookup, setLookup] = useState<{ url: string | null; work: WorkHistorySummary | null; resolved: boolean }>({
     url: null,
     work: null,
@@ -56,24 +82,34 @@ export function useCurrentConversationWork(client: BrowserControlPlaneClient, pa
 
   useEffect(() => {
     let cancelled = false
-    if (!currentUrl || !pageContext) {
+    if (!pageContextResolved) {
+      setLookup({ url: null, work: null, resolved: false })
+      return () => { cancelled = true }
+    }
+    const lookupContext = pageContextRef.current
+    if (!currentUrl || !lookupContext) {
       setLookup({ url: null, work: null, resolved: true })
       return () => { cancelled = true }
     }
 
     setLookup({ url: currentUrl, work: null, resolved: false })
-    void client.findWorkByConversation(pageContext).then((value) => {
+    void client.findWorkByConversation(lookupContext).then((value) => {
       if (!cancelled) setLookup({ url: currentUrl, work: value, resolved: true })
     }).catch(() => {
       if (!cancelled) setLookup({ url: currentUrl, work: null, resolved: true })
     })
     return () => { cancelled = true }
-  }, [client, currentUrl, pageContext, refreshVersion])
+  }, [client, currentUrl, pageContextResolved, refreshVersion])
 
   const matchesCurrentUrl = lookup.url === currentUrl
   return {
     work: matchesCurrentUrl ? lookup.work : null,
-    resolved: currentUrl === null || (matchesCurrentUrl && lookup.resolved),
+    resolved: isCurrentConversationResolved({
+      pageContextResolved,
+      currentUrl,
+      lookupUrl: lookup.url,
+      lookupResolved: lookup.resolved,
+    }),
     refresh: () => setRefreshVersion((value) => value + 1),
   }
 }

@@ -101,10 +101,10 @@ export class NativeMessagingTransport {
       return { state: 'connected' }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      const installRequired = /native messaging host.*not found|specified native messaging host not found|host not found|not registered/i.test(message)
+      const installRequired = /native messaging host.*not found|specified native messaging host not found|host not found|not registered|specified native messaging host.*forbidden/i.test(message)
       return {
         state: installRequired ? 'install-required' : 'unavailable',
-        message: message || (installRequired ? t('extensionNativeHostNotConfigured') : t('extensionConnectionUnavailable')),
+        message: installRequired ? t('extensionNativeHostNotConfigured') : t('extensionNativeConnectionFailed'),
       }
     }
   }

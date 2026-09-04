@@ -6,8 +6,9 @@ import { t } from '../locale'
 import type { WorkHistoryDetail } from '../models/controlPlane'
 
 export function ExpandedDetailApp({ client, workId }: { client: BrowserControlPlaneClient; workId: string | null }) {
-  const pageContext = usePageContext(client)
-  const currentConversation = useCurrentConversationWork(client, pageContext)
+  const pageContextState = usePageContext(client)
+  const pageContext = pageContextState.value
+  const currentConversation = useCurrentConversationWork(client, pageContext, pageContextState.resolved)
   const [detail, setDetail] = useState<WorkHistoryDetail | null>(null)
   const [error, setError] = useState<string | null>(null)
 

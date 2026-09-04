@@ -3,10 +3,11 @@ import { StatusDot } from '../components/Status'
 import { Switch } from '../components/Switch'
 import { runtimeStateLabel, t } from '../locale'
 import type { CapabilityKey, DependencyName } from '../models/controlPlane'
-import uiContractManifest from '@beforewave/agent-helm-ui-contract/package.json'
-import { agentHelmInstallerSourceForRelease, agentHelmMacosInstallerFilename, loadAgentHelmInstallerSource, tunnelOnboardingRequired, tunnelOnboardingSource, tunnelSetupCanSubmit, type TunnelSetupValues } from '@beforewave/agent-helm-ui-contract'
+import extensionManifest from '../../package.json'
+import { agentHelmInstallerSourceForRelease, agentHelmMacosInstallerFilename, tunnelOnboardingSource, tunnelSetupCanSubmit, type TunnelSetupValues } from '@beforewave/agent-helm-ui-contract'
 
 import { Accordion } from '../components/Accordion'
+import { ChevronIcon } from '../components/Icons'
 
 import {
   deriveHelmCapabilitySummary,
@@ -14,7 +15,7 @@ import {
   shouldCompactHelmCapabilitySummary,
 } from '../models/presentation'
 
-const fallbackAgentHelmInstallerSource = agentHelmInstallerSourceForRelease(uiContractManifest.version)
+const fixedAgentHelmInstallerSource = agentHelmInstallerSourceForRelease(extensionManifest.version)
 
 const CAPABILITIES = helmCapabilityDefinitions.map((definition) => ({
   ...definition,
@@ -68,10 +69,12 @@ export const DEFAULT_EXTENSION_SETTINGS_SECTION_ORDER: readonly ExtensionSetting
 type SettingsControlsProps = {
   snapshot: import('../models/controlPlane').ControlPlaneSnapshot | null
   pending: string | null
+  loading?: boolean
   capabilitiesInitiallyExpanded?: boolean
   agentsInitiallyExpanded?: boolean
   includeCoreRow?: boolean
   showInstallGuidance?: boolean
+  dependencySetupMode?: 'status-only' | 'expandable'
   sectionOrder?: readonly ExtensionSettingsSection[]
   onCapabilityChange: (capability: CapabilityKey, enabled: boolean) => void
   onAgentChange: (agentId: string, enabled: boolean) => void
@@ -124,40 +127,43 @@ function AgentSummary({ agents }: { agents: Array<{ id: string; name: string; lo
   )
 }
 
-export function InstallAgentHelmGuidance({
-  onInstallerDownload,
-}: {
-  onInstallerDownload: (url: string, filename: string) => void
-}): React.JSX.Element {
+function CopyableCommand({ command }: { command: string }): React.JSX.Element {
   const [copied, setCopied] = useState(false)
-  const [agentHelmInstallerSource, setAgentHelmInstallerSource] = useState(fallbackAgentHelmInstallerSource)
-  const [installerSourceResolved, setInstallerSourceResolved] = useState(false)
-  useEffect(() => {
-    let active = true
-    const compatibilityUrl = import.meta.env.WXT_AGENT_HELM_COMPATIBILITY_URL?.trim()
-    const expectedReleaseUrl = import.meta.env.WXT_AGENT_HELM_RELEASE_URL?.trim()
-    void loadAgentHelmInstallerSource({
-      ...(compatibilityUrl ? { compatibilityUrl } : {}),
-      ...(expectedReleaseUrl ? { expectedReleaseUrl } : {}),
-    })
-      .then((source) => { if (active) setAgentHelmInstallerSource(source) })
-      .catch(() => {})
-      .finally(() => { if (active) setInstallerSourceResolved(true) })
-    return () => { active = false }
-  }, [])
-  const currentExtensionId = typeof chrome !== 'undefined' && chrome.runtime?.id ? chrome.runtime.id : null
-  const extensionId = currentExtensionId ?? '<extension-id>'
-  const installer = agentHelmInstallerSource.macos
-  const installerFilename = currentExtensionId ? agentHelmMacosInstallerFilename(installer.version, currentExtensionId) : installer.assetName
-  const installScriptUrl = import.meta.env.WXT_AGENT_HELM_INSTALL_SCRIPT_URL?.trim() || `https://unpkg.com/@beforewave/agent-helm@${installer.version}/install.sh`
-  const command = `curl -fsSL ${installScriptUrl} | AGENT_HELM_CHROME_EXTENSION_ID=${extensionId} AGENT_HELM_VERSION=${installer.version} sh`
   const copy = () => {
     void navigator.clipboard?.writeText(command).then(() => {
       setCopied(true)
       window.setTimeout(() => setCopied(false), 1500)
     }).catch(() => {})
   }
+  const label = t(copied ? 'commandCopied' : 'copyCommand')
+  return (
+    <button type="button" className="copyable-command" title={label} aria-label={label} onClick={copy}>
+      <code className="copyable-command__text">{command}</code>
+      <span className="copyable-command__action">{label}</span>
+    </button>
+  )
+}
 
+export function InstallAgentHelmGuidance({
+  onInstallerDownload,
+}: {
+  onInstallerDownload: (url: string, filename: string) => void
+}): React.JSX.Element {
+  const currentExtensionId = typeof chrome !== 'undefined' && chrome.runtime?.id ? chrome.runtime.id : null
+  const extensionId = currentExtensionId ?? '<extension-id>'
+  const windows = typeof navigator !== 'undefined' && /Windows/i.test(navigator.userAgent)
+  const installer = windows ? fixedAgentHelmInstallerSource.windows : fixedAgentHelmInstallerSource.macos
+  const installerFilename = windows
+    ? installer.assetName
+    : currentExtensionId ? agentHelmMacosInstallerFilename(installer.version, currentExtensionId) : installer.assetName
+  const installChromeCommand = windows
+    ? `& ([scriptblock]::Create((irm https://raw.githubusercontent.com/BeforeWave/agent-helm-extensions/main/install-chrome.ps1))) -Version ${extensionManifest.version} -ExtensionId ${extensionId}`
+    : `curl -fsSL https://raw.githubusercontent.com/BeforeWave/agent-helm-extensions/main/install-chrome.sh | AGENT_HELM_CHROME_EXTENSION_ID=${extensionId} sh -s -- ${extensionManifest.version}`
+  const repairCommand = windows
+    ? `& ([scriptblock]::Create((irm https://raw.githubusercontent.com/BeforeWave/agent-helm/main/install.ps1))) -Version ${extensionManifest.agentHelm.version} -ChromeExtensionId ${extensionId}`
+    : `curl -fsSL https://raw.githubusercontent.com/BeforeWave/agent-helm/main/install.sh | AGENT_HELM_CHROME_EXTENSION_ID=${extensionId} sh -s -- ${extensionManifest.agentHelm.version}`
+  const downloadedInstallerPath = windows ? `%USERPROFILE%\\Downloads\\${installerFilename}` : `$HOME/Downloads/${installerFilename}`
+  const gatekeeperCommand = `xattr -dr com.apple.quarantine "${downloadedInstallerPath}"\nopen "${downloadedInstallerPath}"`
   return (
     <div className="extension-install-guidance" role="status">
       <strong>{t('extensionInstallAgentHelmTitle')}</strong>
@@ -165,18 +171,28 @@ export function InstallAgentHelmGuidance({
       <button
         type="button"
         className="primary-button"
-        disabled={!currentExtensionId || !installerSourceResolved}
+        disabled={!currentExtensionId}
         onClick={() => onInstallerDownload(installer.downloadUrl, installerFilename)}
       >
         {t('extensionInstallAgentHelmDownload')}
       </button>
-      <p className="extension-install-warning">{t('extensionInstallAgentHelmUnsigned')}</p>
+      {windows ? (
+        <p className="extension-install-warning">{t('extensionInstallAgentHelmWindows')}</p>
+      ) : (
+        <>
+          <p className="extension-install-warning">{t('extensionInstallAgentHelmUnsigned')}</p>
+          <p className="extension-install-warning">{t('extensionInstallAgentHelmGatekeeperHint')}</p>
+          <CopyableCommand command={gatekeeperCommand} />
+        </>
+      )}
+      <details>
+        <summary>{t('extensionInstallAgentHelmTerminalFirst')}</summary>
+        <p>{t('extensionInstallAgentHelmTerminalFirstDescription')}</p>
+        <CopyableCommand command={installChromeCommand} />
+      </details>
       <details>
         <summary>{t('extensionInstallAgentHelmTerminalFallback')}</summary>
-        <pre>{command}</pre>
-        <button type="button" className="secondary-button" onClick={copy}>
-          {t(copied ? 'extensionInstallAgentHelmCopied' : 'extensionInstallAgentHelmCopy')}
-        </button>
+        <CopyableCommand command={repairCommand} />
       </details>
     </div>
   )
@@ -185,10 +201,12 @@ export function InstallAgentHelmGuidance({
 export function ExtensionSettingsControls({
   snapshot,
   pending,
+  loading = false,
   capabilitiesInitiallyExpanded = false,
   agentsInitiallyExpanded = false,
   includeCoreRow = true,
   showInstallGuidance = false,
+  dependencySetupMode = 'status-only',
   sectionOrder = DEFAULT_EXTENSION_SETTINGS_SECTION_ORDER,
   onCapabilityChange,
   onAgentChange,
@@ -201,17 +219,30 @@ export function ExtensionSettingsControls({
 }: SettingsControlsProps): React.JSX.Element {
   const [capabilitiesExpanded, setCapabilitiesExpanded] = useState(capabilitiesInitiallyExpanded)
   const [agentsExpanded, setAgentsExpanded] = useState(agentsInitiallyExpanded)
+  const [localAgentLspExpanded, setLocalAgentLspExpanded] = useState(false)
   const [tunnelExpanded, setTunnelExpanded] = useState(false)
   const [tunnelId, setTunnelId] = useState('')
   const [organizationId, setOrganizationId] = useState('')
   const [runtimeApiKey, setRuntimeApiKey] = useState('')
-  const tunnelOnboardingAutoOpened = useRef(false)
+  const [proxyUrl, setProxyUrl] = useState('')
   const core = snapshot?.settings.find((setting) => setting.id === 'core')
-  const localAgentLsp = snapshot?.settings.find((setting) => setting.id === 'local-agent-lsp')
-  const tunnel = snapshot?.settings.find((setting) => setting.id === 'tunnel')
+  const localAgentLsp = snapshot?.settings.find((setting) => setting.id === 'local-agent-lsp') ?? (loading ? {
+    id: 'local-agent-lsp',
+    label: t('localMcp'),
+    kind: 'toggle' as const,
+    state: 'unavailable' as const,
+    enabled: false,
+    configurable: false,
+  } : undefined)
+  const tunnel = snapshot?.settings.find((setting) => setting.id === 'tunnel') ?? (loading ? {
+    id: 'tunnel',
+    label: t('tunnel'),
+    kind: 'status' as const,
+    state: 'unavailable' as const,
+  } : undefined)
   const serenaDependency = snapshot?.dependencies.serena
   const tunnelDependency = snapshot?.dependencies.tunnelClient
-  const childControlsDisabled = core?.enabled !== true || pending === 'setting:core'
+  const childControlsDisabled = loading || core?.enabled !== true || pending === 'setting:core'
 
   const enabledCapabilities = deriveHelmCapabilitySummary({
     understand: snapshot?.capabilities.understand.enabled ?? false,
@@ -225,20 +256,14 @@ export function ExtensionSettingsControls({
   const enabledAgents = snapshot?.agents.filter((agent) => agent.enabled) ?? []
   const agentsExpandable = (snapshot?.agents.length ?? 0) > 0
   const [openAiStep, agentHelmStep, chatGptStep] = tunnelOnboardingSource.steps
-  const needsTunnelSetup = Boolean(tunnel && tunnelOnboardingRequired({ tunnelId: tunnel.tunnelId, apiKeyConfigured: tunnel.apiKeyConfigured ?? false, missingEnvironment: tunnel.missingEnvironment }))
 
   const seedTunnelFields = () => {
     setTunnelId(tunnel?.tunnelId ?? '')
     setOrganizationId(tunnel?.organizationId ?? '')
     setRuntimeApiKey('')
+    setProxyUrl(tunnel?.proxyUrl ?? '')
   }
 
-  useEffect(() => {
-    if (!onTunnelSetup || !needsTunnelSetup || tunnelOnboardingAutoOpened.current) return
-    tunnelOnboardingAutoOpened.current = true
-    seedTunnelFields()
-    setTunnelExpanded(true)
-  }, [needsTunnelSetup, onTunnelSetup, tunnel?.organizationId, tunnel?.tunnelId])
 
   const toggleTunnel = () => {
     setTunnelExpanded((current) => {
@@ -254,6 +279,7 @@ export function ExtensionSettingsControls({
       tunnelId,
       ...(organizationId.trim() ? { organizationId } : {}),
       ...(runtimeApiKey.trim() ? { apiKey: runtimeApiKey } : {}),
+      proxyUrl,
     }
     try {
       await onTunnelSetup(input)
@@ -270,6 +296,7 @@ export function ExtensionSettingsControls({
           key={section}
           title={t('capabilityGroup')}
           expanded={capabilitiesExpanded}
+          disabled={loading}
           onToggle={() => setCapabilitiesExpanded((current) => !current)}
           summary={<CapabilitySummary items={enabledCapabilities} />}
         >
@@ -278,19 +305,6 @@ export function ExtensionSettingsControls({
             return (
               <div key={definition.key} className="popup-subrow">
                 <span className="popup-subrow__name"><span aria-hidden="true">{definition.icon}</span>{t(definition.labelKey)}</span>
-                {definition.key === 'understand' && serenaDependency?.state === 'unavailable' ? (
-                  <button
-                    type="button"
-                    className="secondary-button"
-                    disabled={pending !== null}
-                    onClick={() => {
-                      if (serenaDependency.installCommand) onDependencyInstall('serena')
-                      else if (serenaDependency.installUrl) onOpenUrl(serenaDependency.installUrl)
-                    }}
-                  >
-                    {serenaDependency.installCommand ? t('install') : t('goInstall')}
-                  </button>
-                ) : null}
                 <Switch
                   checked={state?.enabled ?? false}
                   disabled={childControlsDisabled || !state?.available || pending !== null}
@@ -334,39 +348,97 @@ export function ExtensionSettingsControls({
 
     if (section === 'local-agent-lsp') {
       if (!localAgentLsp) return null
+      const serenaUnavailable = serenaDependency?.state === 'unavailable'
+      const issue = serenaUnavailable
+        ? `${t('serenaDependencyIssue')}: ${serenaDependency.installCommand ? t('serenaInstallDescription') : t('serenaManualDescription')}`
+        : localAgentLsp.message
+      const statusState = serenaUnavailable || localAgentLsp.state === 'unavailable' || localAgentLsp.state === 'error'
+        ? 'error'
+        : localAgentLsp.state
+      const canExpand = dependencySetupMode === 'expandable' && serenaUnavailable
       return (
-        <div key={section} className="popup-setting-row">
-          <span className="popup-setting-name">{localAgentLsp.label}</span>
-          <Switch
-            checked={localAgentLsp.enabled ?? false}
-            disabled={childControlsDisabled || !localAgentLsp.configurable || pending !== null}
-            label={localAgentLsp.label}
-            onChange={(enabled) => onSettingChange(localAgentLsp.id, enabled)}
-          />
-        </div>
+        <section key={section} className="popup-dependency-section">
+          <div className="popup-setting-row">
+            <span className="popup-setting-name">{localAgentLsp.label}</span>
+            <span className="popup-setting-controls">
+              <span className="popup-setting-state" role="img" title={issue} aria-label={issue ?? runtimeStateLabel(localAgentLsp.state)}>
+                <StatusDot state={statusState} />
+              </span>
+              <Switch
+                checked={localAgentLsp.enabled ?? false}
+                disabled={childControlsDisabled || !localAgentLsp.configurable || pending !== null}
+                label={localAgentLsp.label}
+                onChange={(enabled) => onSettingChange(localAgentLsp.id, enabled)}
+              />
+              {canExpand ? (
+                <button
+                  type="button"
+                  className="icon-button popup-dependency-expand"
+                  aria-label={t('serenaDependencyIssue')}
+                  aria-expanded={localAgentLspExpanded}
+                  onClick={() => setLocalAgentLspExpanded((current) => !current)}
+                >
+                  <ChevronIcon direction={localAgentLspExpanded ? 'up' : 'down'} />
+                </button>
+              ) : null}
+            </span>
+          </div>
+          {canExpand && localAgentLspExpanded ? (
+            <div className="dependency-setup-panel" role="status">
+              <strong className="dependency-setup-title">{t('serenaDependencyIssue')}</strong>
+              <p className="dependency-setup-error">{serenaDependency.installCommand ? t('serenaInstallDescription') : t('serenaManualDescription')}</p>
+              {serenaDependency.installCommand ? <CopyableCommand command={serenaDependency.installCommand} /> : null}
+              <div className="dependency-setup-actions">
+                {serenaDependency.installCommand ? (
+                  <button type="button" className="primary-button" disabled={pending !== null} onClick={() => onDependencyInstall('serena')}>
+                    {pending === 'dependency:serena' ? t('installing') : t('install')}
+                  </button>
+                ) : null}
+                {serenaDependency.installUrl ? (
+                  <button
+                    type="button"
+                    className={serenaDependency.installCommand ? 'secondary-button' : 'primary-button'}
+                    onClick={() => onOpenUrl(serenaDependency.installUrl!)}
+                  >
+                    {serenaDependency.installCommand ? t('manualSetup') : t('goInstall')}
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+        </section>
       )
     }
 
     if (!tunnel) return null
-    const tunnelText = tunnel.message || runtimeStateLabel(tunnel.state)
+    const tunnelIssue = tunnel.message ?? (tunnelDependency?.state === 'unavailable' ? t(openAiStep.dependency.required.key) : undefined)
+    const tunnelStatusState = tunnelIssue || tunnel.state === 'unavailable' || tunnel.state === 'error' ? 'error' : tunnel.state
     const summary = (
-      <span className="popup-runtime-state" title={tunnel.message}>
-        <StatusDot state={tunnel.state} />
-        {tunnelText ? <span>{tunnelText}</span> : null}
+      <span className="popup-runtime-state" role="img" title={tunnelIssue} aria-label={tunnelIssue ?? runtimeStateLabel(tunnel.state)}>
+        <StatusDot state={tunnelStatusState} />
       </span>
     )
 
     if (!onTunnelSetup) {
       const content = <><span className="popup-setting-name">{tunnel.label}</span>{summary}</>
-      return onTunnelNavigate ? (
-        <button key={section} type="button" className="popup-setting-row" onClick={onTunnelNavigate}>{content}</button>
+      const tunnelAction = tunnel.adminUrl ? () => onOpenUrl(tunnel.adminUrl!) : onTunnelNavigate
+      return tunnelAction ? (
+        <button key={section} type="button" className="popup-setting-row" onClick={tunnelAction}>{content}</button>
       ) : (
         <div key={section} className="popup-setting-row">{content}</div>
       )
     }
 
     return (
-      <Accordion key={section} title={tunnel.label} expanded={tunnelExpanded} onToggle={toggleTunnel} summary={summary}>
+      <Accordion
+        key={section}
+        title={tunnel.label}
+        expanded={tunnelExpanded}
+        disabled={loading}
+        onToggle={toggleTunnel}
+        onTitleClick={tunnel.adminUrl ? () => onOpenUrl(tunnel.adminUrl!) : undefined}
+        summary={summary}
+      >
         <div className="tunnel-setup-panel">
           <p className="tunnel-setup-copy">{t(tunnelOnboardingSource.description.key)}</p>
           {tunnel.message ? <p className="tunnel-setup-error">{tunnel.message}</p> : null}
@@ -410,6 +482,17 @@ export function ExtensionSettingsControls({
               />
             </label>
             <p className="tunnel-setup-copy">{tunnel.apiKeyConfigured ? t(agentHelmStep.configuredNote.key) : t(agentHelmStep.missingNote.key)}</p>
+            <label className="tunnel-setup-field">
+              <span>{t(agentHelmStep.fields[3].label.key)}</span>
+              <input
+                value={proxyUrl}
+                placeholder={t(agentHelmStep.fields[3].savedPlaceholder.key)}
+                onChange={(event) => setProxyUrl(event.currentTarget.value)}
+                autoComplete="off"
+                spellCheck={false}
+              />
+            </label>
+            <p className="tunnel-setup-copy">{tunnel.proxyConfigured ? t(agentHelmStep.proxyConfiguredNote.key) : t(agentHelmStep.proxyMissingNote.key)}</p>
             <p className="tunnel-setup-copy">{t(agentHelmStep.storageNote.key)}</p>
             <div className="tunnel-setup-actions">
               <button

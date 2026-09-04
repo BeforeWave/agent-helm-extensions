@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import type { WorkHistoryPresentationDetail, WorkHistoryPresentationLabel, WorkHistoryPresentationTitle } from '@beforewave/agent-helm-ui-contract'
 import { filterWorkHistoryTimeline, type WorkHistoryActivityFilter } from '../models/workHistory'
 import type { BrowserControlPlaneClient } from '../client/BrowserControlPlaneClient'
 import { t } from '../locale'
@@ -16,6 +17,44 @@ function ExpandIcon() {
 
 function ExternalIcon() {
   return <svg className="button-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M11 4h5v5M16 4l-7 7M8 6H5.5A1.5 1.5 0 0 0 4 7.5v7A1.5 1.5 0 0 0 5.5 16h7a1.5 1.5 0 0 0 1.5-1.5V12" /></svg>
+}
+
+function presentationLabel(label: WorkHistoryPresentationLabel): string {
+  if (label === 'activity') return t('sessionAction')
+  if (label === 'delegation.created') return t('sessionDelegationCreated')
+  if (label === 'delegation.attached') return t('sessionDelegationAttached')
+  if (label === 'delegation.prompted') return t('sessionDelegationPrompted')
+  if (label === 'delegation.resumed') return t('sessionDelegationResumed')
+  if (label === 'delegation.status') return t('sessionDelegationStatus')
+  if (label === 'action.read') return t('sessionActionRead')
+  if (label === 'action.search') return t('sessionActionSearch')
+  if (label === 'action.inspect') return t('sessionActionInspect')
+  if (label === 'action.diagnostic') return t('sessionActionDiagnostic')
+  if (label === 'action.verify') return t('sessionActionVerify')
+  if (label === 'action.command') return t('sessionActionCommand')
+  return t('sessionActionEdit')
+}
+
+function presentationTitle(title: WorkHistoryPresentationTitle): string {
+  return title.kind === 'text' ? title.text : presentationLabel(title.label)
+}
+
+function statusLabel(status: string): string {
+  if (status === 'success') return t('sessionStatusSuccess')
+  if (status === 'error') return t('sessionStatusError')
+  if (status === 'idle') return t('sessionStatusIdle')
+  if (status === 'running') return t('sessionStatusRunningAgent')
+  if (status === 'waiting') return t('sessionStatusWaiting')
+  if (status === 'failed') return t('sessionStatusFailedAgent')
+  if (status === 'cancelled') return t('sessionStatusCancelled')
+  return t('sessionStatusUnknown')
+}
+
+function presentationDetail(detail: WorkHistoryPresentationDetail): string {
+  if (detail.kind === 'duration') return `${detail.durationMs} ms`
+  if (detail.kind === 'subagent-session') return `${t('sessionSubagentId')}: ${detail.id}`
+  if (detail.kind === 'status') return statusLabel(detail.text)
+  return detail.text
 }
 
 type ActivityFilter = WorkHistoryActivityFilter
@@ -155,8 +194,8 @@ export function WorkDetail({
 
       <section className="detail-section">
         <h2>{t('extensionOriginContext')}</h2>
-        {detail.originIntent ? <ContextCard intent={detail.originIntent} role={t('sessionOriginChat')} /> : <div className="empty-state">{t('extensionNoWorkContext')}</div>}
-        {detail.boundIntents.map((entry, index) => <ContextCard key={`${entry.boundAt}:${index}`} intent={entry.intent} boundAt={entry.boundAt} role={t('extensionBoundNumber', { index: index + 1 })} />)}
+        {detail.boundIntents.map((entry, index) => <ContextCard key={`${entry.boundAt}:${index}`} intent={entry.intent} boundAt={entry.boundAt} role={t('extensionBoundNumber', { index: detail.boundIntents.length - index })} />)}
+        {detail.originIntent ? <ContextCard intent={detail.originIntent} role={t('sessionOriginChat')} /> : detail.boundIntents.length ? null : <div className="empty-state">{t('extensionNoWorkContext')}</div>}
       </section>
 
       <section className="timeline-section">
@@ -171,12 +210,10 @@ export function WorkDetail({
               <time>{formatTimestamp(item.timestamp)}</time>
               <div><span className="actor-badge">{item.actorName || (item.actor === 'subagent' ? t('sessionSubagent') : t('sessionChatGPT'))}</span></div>
               <div className="timeline-item__content">
-                <strong>{item.action}</strong>
-                {item.primary ? <div>{item.primary}</div> : null}
+                <strong>{presentationTitle(item.presentation.title)}</strong>
+                {item.presentation.primary ? <div>{item.presentation.primary}</div> : null}
                 <div className="timeline-item__secondary">
-                  {item.secondary ? <span>{item.secondary}</span> : null}
-                  {item.status ? <span>{item.status}</span> : null}
-                  {item.durationMs !== undefined ? <span>{item.durationMs} ms</span> : null}
+                  {item.presentation.details.map((detail, detailIndex) => <span key={detailIndex}>{presentationDetail(detail)}</span>)}
                 </div>
               </div>
             </article>

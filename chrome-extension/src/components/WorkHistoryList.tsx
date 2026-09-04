@@ -51,7 +51,7 @@ export function WorkHistoryList({
       ) : null}
       {partitioned.recent.length ? (
         <section className="work-list__section">
-          {partitioned.current ? <div className="work-list__section-label">{t('extensionRecentWork')}</div> : null}
+          <div className="work-list__section-label">{t('extensionRecentWork')}</div>
           {partitioned.recent.map((work) => <WorkCard key={work.id} work={work} onSelect={onSelect} />)}
         </section>
       ) : null}

@@ -1,4 +1,4 @@
-import { deriveHelmConnectionHealth } from '@beforewave/agent-helm-ui-contract'
+import { deriveHelmConnectionHealth, type WorkHistoryTimelinePresentation } from '@beforewave/agent-helm-ui-contract'
 
 export type ConnectionState = 'connected' | 'unavailable' | 'install-required' | 'error'
 export type RuntimeState = 'running' | 'ready' | 'available' | 'stopped' | 'unavailable' | 'error'
@@ -104,6 +104,8 @@ export interface SettingProjection {
   tunnelId?: string
   organizationId?: string
   apiKeyConfigured?: boolean
+  proxyConfigured?: boolean
+  proxyUrl?: string
   dependencyAvailable?: boolean
   installUrl?: string
   missingEnvironment?: string[]
@@ -148,11 +150,7 @@ export interface WorkTimelineItem {
   timestamp: string
   actor: 'chatgpt' | 'subagent'
   actorName?: string
-  action: string
-  primary?: string
-  secondary?: string
-  status?: string
-  durationMs?: number
+  presentation: WorkHistoryTimelinePresentation
 }
 
 export interface WorkHistoryPage {

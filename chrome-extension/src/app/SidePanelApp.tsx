@@ -9,6 +9,7 @@ import { workspaceDisplayTitle, type WorkHistoryDetail } from '../models/control
 
 import { CoreSettingControl, ExtensionSettingsControls } from '../components/ExtensionSettingsControls'
 import { ChevronIcon } from '../components/Icons'
+import { LoadingSurface } from '../components/LoadingSurface'
 
 function WorkspaceSelector({
   workspaces,
@@ -73,8 +74,9 @@ function WorkspaceSelector({
 
 export function SidePanelApp({ client }: { client: BrowserControlPlaneClient }) {
   const { snapshot, setSnapshot, error, setError, loading } = useControlPlaneSnapshot(client)
-  const pageContext = usePageContext(client)
-  const currentConversation = useCurrentConversationWork(client, pageContext)
+  const pageContextState = usePageContext(client)
+  const pageContext = pageContextState.value
+  const currentConversation = useCurrentConversationWork(client, pageContext, pageContextState.resolved)
   const [workspaceFilter, setWorkspaceFilter] = useState('all')
   const [selectedWorkId, setSelectedWorkId] = useState<string | null>(null)
   const [detail, setDetail] = useState<WorkHistoryDetail | null>(null)
@@ -92,6 +94,7 @@ export function SidePanelApp({ client }: { client: BrowserControlPlaneClient }) 
     autoSelectFirst: false,
   }), [snapshot, workspaceFilter, selectedWorkId])
   const visibleWorks = workHistory.items
+  const workHistoryLoading = (loading && !snapshot) || !currentConversation.resolved
 
   useEffect(() => {
     let cancelled = false
@@ -234,15 +237,15 @@ export function SidePanelApp({ client }: { client: BrowserControlPlaneClient }) 
       {error ? <div className="error-banner sidepanel-error">{error}</div> : null}
 
       <section className="sidepanel-controls" aria-label={t('status')}>
-        {loading && !snapshot ? (
-          <div className="unavailable-state">{t('loading')}</div>
-        ) : (
+        <LoadingSurface loading={loading && !snapshot} label={t('loading')}>
           <ExtensionSettingsControls
             snapshot={snapshot}
+            loading={loading && !snapshot}
             pending={pendingControl}
             capabilitiesInitiallyExpanded={false}
             includeCoreRow={false}
             showInstallGuidance
+            dependencySetupMode="expandable"
             sectionOrder={['capabilities', 'agents', 'local-agent-lsp', 'tunnel']}
             onCapabilityChange={(capability, enabled) => {
               void mutateControl(`capability:${capability}`, () => client.setCapability(capability, enabled))
@@ -264,7 +267,7 @@ export function SidePanelApp({ client }: { client: BrowserControlPlaneClient }) 
               void client.downloadFile(url, filename).catch((cause) => setError(cause instanceof Error ? cause.message : String(cause)))
             }}
           />
-        )}
+        </LoadingSurface>
 
         <WorkspaceSelector
           workspaces={workHistory.workspace.options.map((workspace) => ({ id: workspace.id, title: workspace.label }))}
@@ -289,8 +292,8 @@ export function SidePanelApp({ client }: { client: BrowserControlPlaneClient }) 
 
       <div className="history-divider" />
 
-      <section className="work-history-region" ref={listScrollRef}>
-        {loading && !snapshot
+      <section className="work-history-region" ref={listScrollRef} aria-busy={workHistoryLoading}>
+        {workHistoryLoading
           ? <div className="empty-state">{t('extensionLoadingWorkHistory')}</div>
           : visibleWorks.length || currentConversation.work
             ? <WorkHistoryList

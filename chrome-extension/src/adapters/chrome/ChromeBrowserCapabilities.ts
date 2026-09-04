@@ -43,7 +43,7 @@ export class ChromeBrowserCapabilities implements BrowserCapabilities {
   async downloadFile(url: string, filename: string): Promise<void> {
     const granted = await chrome.permissions.request({ permissions: ['downloads'] })
     if (!granted) throw new Error('Download permission is required to download Agent Helm Installer')
-    await chrome.downloads.download({ url, filename, saveAs: false, conflictAction: 'overwrite' })
+    await chrome.downloads.download({ url, filename, saveAs: true, conflictAction: 'overwrite' })
   }
 
   async openExpandedDetail(workId: string): Promise<void> {
