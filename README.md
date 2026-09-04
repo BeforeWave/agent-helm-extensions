@@ -30,7 +30,7 @@ Extension 会把当前 ChatGPT Conversation 和本地正在发生的工作关联
 chrome://extensions
 ```
 
-开启 **Developer mode**，选择 **Load unpacked**，然后选择刚才解压出来的 Extension 目录。
+开启 **Developer mode**，选择 **Load unpacked**，然后选择刚才解压出来的 Extension 目录，直接把目录拖进Chrome此界面也可以。
 
 安装后，Extension 会检查当前电脑是否已经可以连接 Agent Helm。
 
