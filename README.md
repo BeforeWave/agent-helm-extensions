@@ -16,7 +16,7 @@ Extension 会把当前 ChatGPT Conversation 和本地正在发生的工作关联
 
 你可以直接在浏览器里看到 ChatGPT 当前用了哪个项目、在本地做过什么、任务有没有交给 Agent，以及现在进行到哪。
 
-**很多地区网络服务联通OpenAI不够便利，特别加入独立配置的代理功能，可以单独配置代理，代理不用全局开。**
+**很多地区网络联通OpenAI不够便利，特别加入独立配置的代理功能，可以单独配置代理，代理不用全局开。**
 
 <img width="1000" alt="Agent Helm Chrome Extension" src="https://github.com/user-attachments/assets/0c65c877-91d2-4453-a986-52d1bd13af5a" />
 
