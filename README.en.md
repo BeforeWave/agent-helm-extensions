@@ -95,32 +95,59 @@ The extension checks whether your machine is ready to connect to Agent Helm.
 
 <img width="1988" height="1934" alt="Agent Helm install required" src="https://github.com/user-attachments/assets/635dc6ec-429c-4553-ba8e-a9528afeeac3" />
 
-If a required local component is missing, the extension will tell you and provide the Agent Helm Installer.
+If Agent Helm is not installed locally, the Extension shows **Download Installer**:
+
+- macOS: \`Agent-Helm-Installer-0.1.0.pkg\`
+- Windows x64: \`Agent-Helm-Installer-0.1.0-win32-x64.cmd\`
+
+The Installer version matches the Extension version and installs the exact Agent Helm version pinned by that Extension Release.
 
 Complete the installation, connection, and permission steps, then return to ChatGPT and start working.
 
-### Or Set It Up from the Command Line
+### Terminal Installation
 
-```bash id="31j18x"
-npm install -g agent-helm
-agent-helm setup
-agent-helm setup chrome
-```
+macOS / Linux:
+
+\`\`\`bash
+curl -fsSL https://raw.githubusercontent.com/BeforeWave/agent-helm-extensions/main/install-chrome.sh | sh
+\`\`\`
+
+Install a specific Extension version:
+
+\`\`\`bash
+curl -fsSL https://raw.githubusercontent.com/BeforeWave/agent-helm-extensions/main/install-chrome.sh | sh -s -- 0.1.0
+\`\`\`
+
+Windows x64:
+
+\`\`\`powershell
+irm https://raw.githubusercontent.com/BeforeWave/agent-helm-extensions/main/install-chrome.ps1 | iex
+\`\`\`
+
+Install a specific Extension version:
+
+\`\`\`powershell
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/BeforeWave/agent-helm-extensions/main/install-chrome.ps1))) -Version 0.1.0
+\`\`\`
+
+The terminal installer handles Node/runtime, Agent Helm, and Native Messaging bridge setup, then extracts the matching Extension into Downloads. The only remaining Chrome action is to enable Developer mode and choose **Load unpacked**.
+
+Current Windows support is Windows x64, covering common Intel/AMD Windows 10 and Windows 11 systems. Windows ARM64 is not yet a supported target.
 
 If Agent Helm is already installed and configured:
 
-```bash id="tco7r0"
+\`\`\`bash
 agent-helm setup chrome
-```
+\`\`\`
 
 Common commands:
 
-```bash id="cc3x8z"
+\`\`\`bash
 agent-helm start
 agent-helm status
 agent-helm doctor
 agent-helm stop
-```
+\`\`\`
 
 ## Local Projects and Security
 
