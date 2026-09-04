@@ -22,26 +22,36 @@ Extension 会把当前 ChatGPT Conversation 和本地正在发生的工作关联
 
 ### 1. 手动安装 Chrome Extension
 
-从[release](https://github.com/BeforeWave/agent-helm-extensions/releases)里下载安装 **Agent Helm Chrome Extension**。
+从 [Releases](https://github.com/BeforeWave/agent-helm-extensions/releases) 下载对应版本的 **Agent Helm Chrome Extension** zip。
 
-Extension 会检查当前电脑是否已经可以连接 Agent Helm。
+解压后，在 Chrome 中打开：
+
+```text
+chrome://extensions
+```
+
+开启 **Developer mode**，选择 **Load unpacked**，然后选择刚才解压出来的 Extension 目录。
+
+安装后，Extension 会检查当前电脑是否已经可以连接 Agent Helm。
 
 如果本地还没有 Agent Helm，Extension 会显示 **Download Installer**：
 
-- macOS：`Agent-Helm-Installer-0.1.0.pkg`
-- Windows x64：`Agent-Helm-Installer-0.1.0-win32-x64.cmd`
+* macOS：`Agent-Helm-Installer-0.1.0.pkg`
+* Windows x64：`Agent-Helm-Installer-0.1.0-win32-x64.cmd`
 
 Installer 与 Extension 使用相同版本，并安装该 Extension Release 固定的 Agent Helm 版本。
 
 按照页面完成安装、连接和授权后，回到 ChatGPT 就可以开始使用。
-<img width="900" alt="Agent Helm install required" src="https://github.com/user-attachments/assets/635dc6ec-429c-4553-ba8e-a9528afeeac3" />
 
+<img width="900" alt="Agent Helm install required" src="https://github.com/user-attachments/assets/635dc6ec-429c-4553-ba8e-a9528afeeac3" />
 
 ### 2. Terminal 一键安装
 
-Terminal 安装会完成 Node/runtime、Agent Helm 和 Native Messaging bridge，并把匹配的 Extension 解压到 Downloads。最后只需要在 Chrome 中打开 Developer mode，选择 **Load unpacked**。
+也可以直接从 Terminal 完成安装。
 
-当前 Windows 支持范围为 Windows x64，即常见 Intel / AMD Windows 10、Windows 11。Windows ARM64 暂不作为正式支持平台。
+Terminal 安装会完成 Node/runtime、Agent Helm 和 Native Messaging bridge，并把匹配的 Extension 解压到 Downloads。
+
+最后只需要在 Chrome 中打开 Developer mode，选择 **Load unpacked**。
 
 macOS / Linux：
 
@@ -67,15 +77,19 @@ irm https://raw.githubusercontent.com/BeforeWave/agent-helm-extensions/main/inst
 & ([scriptblock]::Create((irm https://raw.githubusercontent.com/BeforeWave/agent-helm-extensions/main/install-chrome.ps1))) -Version 0.1.0
 ```
 
+当前 Windows 支持范围为 Windows x64，即常见 Intel / AMD Windows 10、Windows 11。Windows ARM64 暂不作为正式支持平台。
 
-### 3. 高级配置
+### 3. 已经安装 Agent Helm
 
-
-如果是先安装的命令行 Agent Helm使用setup chrome即可，更多使用可以参考 [Agent Helm](https://github.com/BeforeWave/agent-helm#2-configure)
+如果之前已经通过命令行安装并配置了 Agent Helm，可以直接配置 Chrome integration：
 
 ```bash
 agent-helm setup chrome
 ```
+
+更多 Agent Helm 的配置和使用方式见 [Agent Helm](https://github.com/BeforeWave/agent-helm#2-configure)。
+
+完成后回到 Extension，确认 Agent Helm 已连接，然后就可以在 ChatGPT 中开始使用。
 
 ## 从你正在用的 ChatGPT 开始
 
