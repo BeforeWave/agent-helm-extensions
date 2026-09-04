@@ -12,7 +12,7 @@ describe('Chrome presentation model', () => {
     expect(helmCapabilityDefinitions.map(({ id, icon }) => [id, icon])).toEqual([
       ['understand', '💡'],
       ['coding', '✋'],
-      ['command', '🗣️'],
+      ['command', '👉'],
     ])
     expect(deriveHelmCapabilitySummary({ understand: true, coding: false, command: true }).map(({ id }) => id)).toEqual([
       'understand',
@@ -51,6 +51,7 @@ describe('native Core snapshot projection', () => {
     chatUrls: ['https://chatgpt.com/c/session-1'],
     activeWorkspaceId: 'workspace-1',
     workspace: { id: 'workspace-1', title: 'example-project' },
+    presentation: { title: 'Implement feature', workspaceLabel: 'example-project' },
     createdAt: '2026-08-30T00:00:00.000Z',
     updatedAt: '2026-08-30T00:01:00.000Z',
     lastActivityAt: '2026-08-30T00:01:00.000Z',
@@ -236,6 +237,9 @@ describe('extension connection presentation', () => {
 
     localAgentLsp.enabled = false
     localAgentLsp.state = 'stopped'
+    expect(deriveExtensionConnectionPresentation(snapshot)).toEqual({ state: 'connected' })
+
+    snapshot.dependencies.serena.state = 'unavailable'
     expect(deriveExtensionConnectionPresentation(snapshot)).toEqual({ state: 'connected' })
 
     tunnel.state = 'stopped'

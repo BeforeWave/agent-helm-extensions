@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import uiContractManifest from '@beforewave/agent-helm-ui-contract/package.json'
-import { agentHelmInstallerSourceForRelease, agentHelmMacosInstallerFilename, loadAgentHelmInstallerSource } from '@beforewave/agent-helm-ui-contract'
+import extensionManifest from '../package.json'
+import { agentHelmInstallerSourceForRelease, agentHelmMacosInstallerFilename } from '@beforewave/agent-helm-ui-contract'
 import { isSupportedLocalDeepLink } from '../src/services/deepLink'
 import { NativeMessagingTransport } from '../src/adapters/chrome/NativeMessagingTransport'
 import { ChromeBrowserCapabilities } from '../src/adapters/chrome/ChromeBrowserCapabilities'
@@ -8,7 +8,7 @@ import { notificationIdForWork, workIdFromNotificationId } from '../src/services
 
 import { NativeAgentHelmService } from '../src/adapters/chrome/NativeAgentHelmService'
 
-const agentHelmInstallerSource = agentHelmInstallerSourceForRelease(uiContractManifest.version)
+const agentHelmInstallerSource = agentHelmInstallerSourceForRelease(extensionManifest.version)
 
 describe('browser service helpers', () => {
   it('allows only established VS Code local deep-link schemes', () => {
@@ -23,7 +23,17 @@ describe('browser service helpers', () => {
     expect(workIdFromNotificationId('other:notification')).toBeNull()
   })
 
-  it('downloads one static macOS PKG using an Extension-ID-bound local filename', async () => {
+  it('exposes a static win32-x64 installer from the same Extension release', () => {
+    expect(agentHelmInstallerSource.windows).toEqual({
+      version: extensionManifest.version,
+      platform: 'win32-x64',
+      releaseUrl: 'https://github.com/BeforeWave/agent-helm-extensions/releases',
+      assetName: `Agent-Helm-Installer-${extensionManifest.version}-win32-x64.cmd`,
+      downloadUrl: `https://github.com/BeforeWave/agent-helm-extensions/releases/download/v${extensionManifest.version}/Agent-Helm-Installer-${extensionManifest.version}-win32-x64.cmd`,
+    })
+  })
+
+  it('downloads the static macOS PKG using the strict Chrome ID override filename', async () => {
     const extensionId = 'bnmokhimnnlfohfjbgigcmpckkncffdo'
     const calls: chrome.downloads.DownloadOptions[] = []
     const permissionRequests: string[][] = []
@@ -45,16 +55,16 @@ describe('browser service helpers', () => {
     })
     try {
       const browser = new ChromeBrowserCapabilities()
-      const filename = agentHelmMacosInstallerFilename(uiContractManifest.version, extensionId)
+      const filename = agentHelmMacosInstallerFilename(extensionManifest.version, extensionId)
       await browser.downloadFile(agentHelmInstallerSource.macos.downloadUrl, filename)
       expect(permissionRequests).toEqual([['downloads']])
       expect(calls).toEqual([{
         url: agentHelmInstallerSource.macos.downloadUrl,
         filename: `Agent-Helm-Installer-${agentHelmInstallerSource.macos.version}--chrome-${extensionId}.pkg`,
-        saveAs: false,
+        saveAs: true,
         conflictAction: 'overwrite',
       }])
-      expect(() => agentHelmMacosInstallerFilename(uiContractManifest.version, 'invalid')).toThrow('Invalid Chrome Extension ID')
+      expect(() => agentHelmMacosInstallerFilename(extensionManifest.version, 'invalid')).toThrow('Invalid Chrome Extension ID')
     } finally {
       if (previousChrome) Object.defineProperty(globalThis, 'chrome', previousChrome)
       else delete (globalThis as { chrome?: unknown }).chrome
@@ -76,56 +86,6 @@ describe('browser service helpers', () => {
       if (previousChrome) Object.defineProperty(globalThis, 'chrome', previousChrome)
       else delete (globalThis as { chrome?: unknown }).chrome
     }
-  })
-
-  it('resolves the Agent Helm installer version from the Chrome compatibility channel', async () => {
-    const source = await loadAgentHelmInstallerSource({
-      fetch: async () => new Response(JSON.stringify({
-        schemaVersion: 1,
-        agentHelm: { version: '9.8.7', releaseUrl: 'https://github.com/BeforeWave/agent-helm/releases' },
-      }), { status: 200, headers: { 'content-type': 'application/json' } }),
-    })
-    expect(source.macos.version).toBe('9.8.7')
-    expect(source.macos.downloadUrl).toBe('https://github.com/BeforeWave/agent-helm/releases/download/v9.8.7/Agent-Helm-Installer-9.8.7.pkg')
-  })
-
-  it('resolves an explicit loopback UAT installer release without weakening the production default', async () => {
-    const releaseUrl = 'http://127.0.0.1:48766/agent-helm/releases'
-    const source = await loadAgentHelmInstallerSource({
-      compatibilityUrl: 'http://127.0.0.1:48766/compatibility/chrome.json',
-      expectedReleaseUrl: releaseUrl,
-      fetch: async () => new Response(JSON.stringify({
-        schemaVersion: 1,
-        agentHelm: { version: '9.8.7', releaseUrl },
-      }), { status: 200, headers: { 'content-type': 'application/json' } }),
-    })
-    expect(source.macos.downloadUrl).toBe('http://127.0.0.1:48766/agent-helm/releases/download/v9.8.7/Agent-Helm-Installer-9.8.7.pkg')
-  })
-
-  it('rejects non-loopback installer release overrides', async () => {
-    await expect(loadAgentHelmInstallerSource({
-      compatibilityUrl: 'https://example.com/compatibility/chrome.json',
-      expectedReleaseUrl: 'https://example.com/releases',
-      fetch: async () => new Response('{}', { status: 200 }),
-    })).rejects.toThrow('official release or an explicit loopback UAT endpoint')
-  })
-
-  it('bounds a stalled Agent Helm installer lookup', async () => {
-    await expect(loadAgentHelmInstallerSource({
-      timeoutMs: 5,
-      fetch: async (_input, init) => await new Promise<Response>((_resolve, reject) => {
-        const signal = init?.signal
-        if (!signal) {
-          reject(new Error('missing abort signal'))
-          return
-        }
-        if (signal.aborted) {
-          reject(new Error('aborted'))
-          return
-        }
-        signal.addEventListener('abort', () => reject(new Error('aborted')), { once: true })
-      }),
-    })).rejects.toThrow('aborted')
   })
 
   it('treats an installed Native Host with a stopped daemon as an available local bridge', async () => {
@@ -308,6 +268,54 @@ describe('browser service helpers', () => {
     expect(markup).not.toContain('should-not-mount')
   })
 
+  it('keeps the production settings shell mounted under the loading overlay', async () => {
+    const React = await import('react')
+    const { renderToStaticMarkup } = await import('react-dom/server')
+    const { LoadingSurface } = await import('../src/components/LoadingSurface')
+    const { ExtensionSettingsControls } = await import('../src/components/ExtensionSettingsControls')
+    const controls = React.createElement(ExtensionSettingsControls, {
+      snapshot: null,
+      loading: true,
+      pending: null,
+      includeCoreRow: false,
+      onCapabilityChange: () => {},
+      onAgentChange: () => {},
+      onSettingChange: () => {},
+      onDependencyInstall: () => {},
+      onOpenUrl: () => {},
+      onInstallerDownload: () => {},
+    })
+    const markup = renderToStaticMarkup(React.createElement(LoadingSurface, {
+      loading: true,
+      label: 'Loading…',
+      children: controls,
+    }))
+    expect(markup).toContain('loading-surface__overlay')
+    expect(markup).toContain('loading-surface__content')
+    expect(markup).toContain('Capabilities')
+    expect(markup).toContain('Agents')
+    expect(markup).toContain('Local Agent LSP')
+    expect(markup).toContain('Tunnel')
+  })
+
+  it('keeps the Accordion row as disclosure while the title owns the separate action', async () => {
+    const React = await import('react')
+    const { renderToStaticMarkup } = await import('react-dom/server')
+    const { Accordion } = await import('../src/components/Accordion')
+    const markup = renderToStaticMarkup(React.createElement(Accordion, {
+      title: 'Tunnel',
+      expanded: false,
+      onToggle: () => {},
+      onTitleClick: () => {},
+      children: React.createElement('div', null, 'Tunnel setup'),
+    }))
+    expect(markup).toContain('accordion__trigger--split')
+    expect(markup.match(/<button/g)).toHaveLength(1)
+    expect(markup).toContain('role="button"')
+    expect(markup).toContain('aria-expanded="false"')
+    expect(markup).not.toContain('Tunnel setup')
+  })
+
   it('sends Tunnel credentials only through the Native mutation and refreshes a sanitized snapshot', async () => {
     const requests: Array<{ method: string; params?: unknown[] }> = []
     const transport = {
@@ -320,7 +328,7 @@ describe('browser service helpers', () => {
           clientLifecycle: { configurable: true },
           externalCapabilities: {},
           externalUserAccess: {},
-          tunnel: { running: true, configured: true, tunnelId: 'tunnel_saved', organizationId: 'org_saved', apiKeyConfigured: true },
+          tunnel: { running: true, configured: true, tunnelId: 'tunnel_saved', organizationId: 'org_saved', apiKeyConfigured: true, proxyConfigured: true, proxyUrl: 'http://proxy-user:proxy-pass@127.0.0.1:7890' },
           localMcp: { enabled: false },
           adapters: [],
         }
@@ -331,10 +339,10 @@ describe('browser service helpers', () => {
     } as unknown as NativeMessagingTransport
 
     const service = new NativeAgentHelmService(transport)
-    const snapshot = await service.configureTunnel({ tunnelId: 'tunnel_saved', organizationId: 'org_saved', apiKey: 'runtime-secret' })
+    const snapshot = await service.configureTunnel({ tunnelId: 'tunnel_saved', organizationId: 'org_saved', apiKey: 'runtime-secret', proxyUrl: 'http://proxy-user:proxy-pass@127.0.0.1:7890' })
 
-    expect(requests[0]).toEqual({ method: 'configureTunnel', params: [{ tunnelId: 'tunnel_saved', organizationId: 'org_saved', apiKey: 'runtime-secret' }] })
-    expect(snapshot.settings.find((setting) => setting.id === 'tunnel')).toMatchObject({ tunnelId: 'tunnel_saved', organizationId: 'org_saved', apiKeyConfigured: true })
+    expect(requests[0]).toEqual({ method: 'configureTunnel', params: [{ tunnelId: 'tunnel_saved', organizationId: 'org_saved', apiKey: 'runtime-secret', proxyUrl: 'http://proxy-user:proxy-pass@127.0.0.1:7890' }] })
+    expect(snapshot.settings.find((setting) => setting.id === 'tunnel')).toMatchObject({ tunnelId: 'tunnel_saved', organizationId: 'org_saved', apiKeyConfigured: true, proxyConfigured: true, proxyUrl: 'http://proxy-user:proxy-pass@127.0.0.1:7890' })
     expect(JSON.stringify(snapshot)).not.toContain('runtime-secret')
   })
 

@@ -50,6 +50,7 @@ describe('native Chrome conversation binding', () => {
     chatUrls: ['https://chatgpt.com/c/new-conversation'],
     activeWorkspaceId: 'workspace-native',
     workspace: { id: 'workspace-native', title: 'example-project' },
+    presentation: { title: 'Native binding', workspaceLabel: 'example-project' },
     createdAt: '2026-08-30T00:00:00.000Z',
     updatedAt: '2026-08-30T00:01:00.000Z',
     lastActivityAt: '2026-08-30T00:01:00.000Z',

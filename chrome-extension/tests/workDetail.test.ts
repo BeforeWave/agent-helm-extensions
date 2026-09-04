@@ -1,22 +1,34 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { filterTimelineItems } from '../src/components/WorkDetail'
-import { partitionWorkHistoryByCurrentConversation } from '../src/components/WorkHistoryList'
+import { partitionWorkHistoryByCurrentConversation, WorkHistoryList } from '../src/components/WorkHistoryList'
 import type { WorkHistorySummary, WorkTimelineItem } from '../src/models/controlPlane'
 
 const timeline: WorkTimelineItem[] = [
-  { id: 'chat', timestamp: '2026-08-29T00:00:00Z', actor: 'chatgpt', action: 'Read' },
-  { id: 'agent', timestamp: '2026-08-29T00:01:00Z', actor: 'subagent', action: 'Prompt' },
+  { id: 'chat', timestamp: '2026-08-29T00:00:00Z', actor: 'chatgpt', presentation: { title: { kind: 'label', label: 'action.read' }, details: [] } },
+  { id: 'agent', timestamp: '2026-08-29T00:01:00Z', actor: 'subagent', presentation: { title: { kind: 'label', label: 'delegation.prompted' }, details: [] } },
 ]
 
 describe('Work Detail activity filters', () => {
   it('shows the full timeline for All', () => {
-    expect(filterTimelineItems(timeline, 'all').map((item) => item.id)).toEqual(['chat', 'agent'])
+    expect(filterTimelineItems(timeline, 'all').map((item) => item.id)).toEqual(['agent', 'chat'])
   })
 
   it('separates ChatGPT and Subagent activity', () => {
     expect(filterTimelineItems(timeline, 'chatgpt').map((item) => item.id)).toEqual(['chat'])
     expect(filterTimelineItems(timeline, 'subagent').map((item) => item.id)).toEqual(['agent'])
+  })
+})
+
+
+describe('Work Detail context ordering', () => {
+  it('renders bound contexts before the origin context so newest context stays on top', () => {
+    const source = readFileSync(new URL('../src/components/WorkDetail.tsx', import.meta.url), 'utf8')
+    const boundContexts = source.indexOf('{detail.boundIntents.map')
+    const originContext = source.indexOf('{detail.originIntent ? <ContextCard')
+
+    expect(boundContexts).toBeGreaterThan(-1)
+    expect(originContext).toBeGreaterThan(boundContexts)
   })
 })
 
@@ -47,6 +59,20 @@ const currentWork: WorkHistorySummary = {
 const otherWork: WorkHistorySummary = {
   id: 'other', title: 'Other work', lastActivityAt: '2026-08-30T00:00:00Z', eventCount: 1, chatCount: 0, delegationCount: 0,
 }
+
+describe('Work History section labels', () => {
+  it('keeps Recent Work visible when there is no linked current conversation', async () => {
+    const React = await import('react')
+    const { renderToStaticMarkup } = await import('react-dom/server')
+    const markup = renderToStaticMarkup(React.createElement(WorkHistoryList, {
+      works: [otherWork],
+      currentConversationWork: null,
+      onSelect: () => {},
+    }))
+    expect(markup).toContain('Recent Work')
+    expect(markup).not.toContain('Current conversation')
+  })
+})
 
 describe('Work History current conversation projection', () => {
   it('pins the current-conversation Work without duplicating it in Recent Work', () => {
