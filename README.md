@@ -6,7 +6,7 @@
 
 # Agent Helm Extensions
 
-**告别复制粘贴与Token额度焦虑！让网页版 ChatGPT 直连本地项目、运行代码，必要时还能调度其他Agent。**
+**告别复制粘贴与Token额度焦虑！让网页版 ChatGPT 直连本地项目、运行代码，按需调度其他Agent。**
 
 [![Release](https://img.shields.io/github/v/release/BeforeWave/agent-helm-extensions?color=blue\&style=flat-square)](https://github.com/BeforeWave/agent-helm-extensions/releases)
 [![Chrome](https://img.shields.io/badge/Chrome-Extension-green?logo=googlechrome\&style=flat-square)](#-快速开始)
