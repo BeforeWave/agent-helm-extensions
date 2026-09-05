@@ -15,7 +15,14 @@
 </div>
 
 <br />
-
+<p align="center">
+  <sub>
+    Also in the Agent Helm ecosystem:
+    <a href="https://github.com/BeforeWave/agent-helm"><b>Agent Helm</b></a> · local runtime
+    &nbsp;&nbsp;|&nbsp;&nbsp;
+    <a href="https://github.com/BeforeWave/dsh-with-chatgpt"><b>DSH with ChatGPT</b></a> · DSH integration
+  </sub>
+</p>
 <p align="center">
   <img width="1000" alt="Agent Helm Chrome Extension Overview" src="https://github.com/user-attachments/assets/0c65c877-91d2-4453-a986-52d1bd13af5a" />
 </p>
