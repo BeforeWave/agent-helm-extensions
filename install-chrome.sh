@@ -12,6 +12,8 @@ RELEASE_TOOL_URL=${BEFOREWAVE_RELEASE_TOOL_URL:-https://raw.githubusercontent.co
 AGENT_HELM_INSTALL_URL=${AGENT_HELM_INSTALL_URL:-https://raw.githubusercontent.com/BeforeWave/agent-helm/main/install.sh}
 EXTENSION_ID=${AGENT_HELM_CHROME_EXTENSION_ID:-eigfmmjccbiinngdfifjkpmofandcgif}
 TARGET=${AGENT_HELM_EXTENSION_DIR:-$HOME/Downloads/Agent-Helm-Chrome-Extension}
+TUNNEL_RELEASE_URL=https://github.com/openai/tunnel-client/releases
+CLI_LAUNCHER=$HOME/.agent-helm/bin/agent-helm
 
 fail() {
   printf '%s\n' "Agent Helm Chrome installer: $1" >&2
@@ -19,11 +21,29 @@ fail() {
 }
 
 stage() {
-  printf '%s\n' "Agent Helm Chrome [$1/5] $2"
+  printf '%s\n' "Agent Helm Chrome [$1/6] $2"
 }
 
 release_tool() {
   curl -fsSL "$RELEASE_TOOL_URL" | /bin/sh -s -- "$@"
+}
+
+confirm_tunnel_install() {
+  if [ "${AGENT_HELM_INSTALL_TUNNEL_CLIENT:-}" = 1 ]; then return 0; fi
+  if [ ! -r /dev/tty ] || [ ! -w /dev/tty ]; then return 1; fi
+  {
+    printf '%s\n' 'OpenAI tunnel-client is required for ChatGPT Tunnel.'
+    printf '%s\n' "Source: $TUNNEL_RELEASE_URL"
+    if [ "$(uname -s 2>/dev/null || true)" = Darwin ]; then
+      printf '%s\n' 'macOS will also grant the downloaded component the required permission to run.'
+    fi
+    printf '%s' 'Install it now? [y/N] '
+  } > /dev/tty
+  IFS= read -r answer < /dev/tty || return 1
+  case "$answer" in
+    y|Y|yes|YES|Yes) return 0 ;;
+    *) return 1 ;;
+  esac
 }
 
 command -v curl >/dev/null 2>&1 || fail "curl is required."
@@ -44,13 +64,25 @@ fi
 stage 2 "Agent Helm $AGENT_HELM_VERSION"
 curl -fsSL "$AGENT_HELM_INSTALL_URL" | AGENT_HELM_CHROME_EXTENSION_ID="$EXTENSION_ID" /bin/sh -s -- "$AGENT_HELM_VERSION" \
   || fail "Agent Helm $AGENT_HELM_VERSION installation failed."
-stage 3 "Native Messaging bridge: registered for $EXTENSION_ID"
+
+stage 3 "OpenAI tunnel-client"
+if EXISTING_TUNNEL_CLIENT=$(command -v tunnel-client 2>/dev/null) && "$EXISTING_TUNNEL_CLIENT" --version >/dev/null 2>&1; then
+  printf '%s\n' "Agent Helm Chrome: using existing tunnel-client from $EXISTING_TUNNEL_CLIENT."
+elif confirm_tunnel_install; then
+  [ -x "$CLI_LAUNCHER" ] || fail "Agent Helm CLI launcher is missing at $CLI_LAUNCHER."
+  "$CLI_LAUNCHER" setup tunnel-client --channel chrome --yes \
+    || fail "OpenAI tunnel-client installation failed."
+else
+  printf '%s\n' 'Agent Helm Chrome: tunnel-client installation skipped. You can install it later from the Tunnel configuration screen.'
+fi
+
+stage 4 "Native Messaging bridge: registered for $EXTENSION_ID"
 
 ROOT=$(mktemp -d "${TMPDIR:-/tmp}/agent-helm-chrome.XXXXXX")
 trap 'rm -rf "$ROOT"' EXIT HUP INT TERM
 ZIP=$ROOT/extension.zip
 STAGE=$ROOT/extension
-stage 4 "Chrome Extension $VERSION: download and verify"
+stage 5 "Chrome Extension $VERSION: download and verify"
 release_tool download \
   --release-url "$RELEASE_URL" \
   --version "$VERSION" \
@@ -72,7 +104,7 @@ fi
 trap - EXIT HUP INT TERM
 rm -rf "$ROOT"
 
-stage 5 "Chrome handoff: Extension files are ready at $TARGET"
+stage 6 "Chrome handoff: Extension files are ready at $TARGET"
 printf '%s\n' "Open chrome://extensions, enable Developer mode, choose Load unpacked, and select:"
 printf '%s\n' "$TARGET"
 if [ "$(uname -s 2>/dev/null || true)" = Darwin ]; then
