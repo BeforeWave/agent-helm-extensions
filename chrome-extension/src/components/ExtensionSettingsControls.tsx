@@ -255,7 +255,7 @@ export function ExtensionSettingsControls({
   }))
   const enabledAgents = snapshot?.agents.filter((agent) => agent.enabled) ?? []
   const agentsExpandable = (snapshot?.agents.length ?? 0) > 0
-  const [openAiStep, agentHelmStep, chatGptStep] = tunnelOnboardingSource.steps
+  const [agentHelmStep, openAiStep, chatGptStep] = tunnelOnboardingSource.steps
 
   const seedTunnelFields = () => {
     setTunnelId(tunnel?.tunnelId ?? '')
@@ -444,44 +444,41 @@ export function ExtensionSettingsControls({
           {tunnel.message ? <p className="tunnel-setup-error">{tunnel.message}</p> : null}
 
           <section className="tunnel-setup-step">
-            <strong>{t(openAiStep.title.key)}</strong>
-            <p className="tunnel-setup-copy">{t(openAiStep.description.key)}</p>
-            {tunnelDependency?.state === 'unavailable' ? (<>
-              <p className="tunnel-setup-error">{t(openAiStep.dependency.required.key)}</p>
-              <p className="tunnel-setup-copy">{t(openAiStep.dependency.installDescription.key)}</p>
-            </>) : null}
-            <div className="tunnel-setup-links">
-              <button type="button" className="secondary-button" onClick={() => onOpenUrl(openAiStep.links[0].href)}>{t(openAiStep.links[0].label.key)}</button>
-              <button type="button" className="secondary-button" onClick={() => onOpenUrl(openAiStep.links[1].href)}>{t(openAiStep.links[1].label.key)}</button>
-              <button type="button" className="secondary-button" onClick={() => onOpenUrl(openAiStep.links[2].href)}>{t(openAiStep.links[2].label.key)}</button>
-              {tunnelDependency?.state === 'unavailable' ? <button type="button" className="primary-button" disabled={pending !== null} onClick={() => onDependencyInstall('tunnelClient')}>{pending === 'tunnel:install' || pending === 'dependency:tunnelClient' ? t(openAiStep.dependency.installing.key) : t(openAiStep.dependency.installAction.key)}</button> : null}
-              <button type="button" className="secondary-button" onClick={() => onOpenUrl(tunnel.installUrl ?? openAiStep.dependency.downloadAction.href)}>{t(openAiStep.dependency.downloadAction.label.key)}</button>
-            </div>
-          </section>
-
-          <section className="tunnel-setup-step">
             <strong>{t(agentHelmStep.title.key)}</strong>
             <p className="tunnel-setup-copy">{t(agentHelmStep.description.key)}</p>
-            <label className="tunnel-setup-field">
+
+            <div className="tunnel-setup-field">
               <span>{t(agentHelmStep.fields[0].label.key)}</span>
-              <input value={tunnelId} onChange={(event) => setTunnelId(event.currentTarget.value)} autoComplete="off" spellCheck={false} />
-            </label>
-            <label className="tunnel-setup-field">
+              <div className="tunnel-setup-field__control">
+                <input value={tunnelId} onChange={(event) => setTunnelId(event.currentTarget.value)} autoComplete="off" spellCheck={false} />
+                <button type="button" className="secondary-button" onClick={() => onOpenUrl(agentHelmStep.fields[0].helpLink.href)}>{t('fieldGet')}</button>
+              </div>
+            </div>
+
+            <div className="tunnel-setup-field">
               <span>{t(agentHelmStep.fields[1].label.key)}</span>
-              <input value={organizationId} onChange={(event) => setOrganizationId(event.currentTarget.value)} autoComplete="off" spellCheck={false} />
-            </label>
-            <label className="tunnel-setup-field">
-              <span>{t(agentHelmStep.fields[2].label.key)}</span>
-              <input
-                type="password"
-                value={runtimeApiKey}
-                placeholder={tunnel.apiKeyConfigured ? t(agentHelmStep.fields[2].savedPlaceholder.key) : undefined}
-                onChange={(event) => setRuntimeApiKey(event.currentTarget.value)}
-                autoComplete="new-password"
-                spellCheck={false}
-              />
-            </label>
+              <div className="tunnel-setup-field__control">
+                <input
+                  type="password"
+                  value={runtimeApiKey}
+                  placeholder={tunnel.apiKeyConfigured ? t(agentHelmStep.fields[1].savedPlaceholder.key) : undefined}
+                  onChange={(event) => setRuntimeApiKey(event.currentTarget.value)}
+                  autoComplete="new-password"
+                  spellCheck={false}
+                />
+                <button type="button" className="secondary-button" onClick={() => onOpenUrl(agentHelmStep.fields[1].helpLink.href)}>{t('fieldGet')}</button>
+              </div>
+            </div>
             <p className="tunnel-setup-copy">{tunnel.apiKeyConfigured ? t(agentHelmStep.configuredNote.key) : t(agentHelmStep.missingNote.key)}</p>
+
+            <div className="tunnel-setup-field">
+              <span>{t(agentHelmStep.fields[2].label.key)}</span>
+              <div className="tunnel-setup-field__control">
+                <input value={organizationId} onChange={(event) => setOrganizationId(event.currentTarget.value)} autoComplete="off" spellCheck={false} />
+                <button type="button" className="secondary-button" onClick={() => onOpenUrl(agentHelmStep.fields[2].helpLink.href)}>{t('fieldGet')}</button>
+              </div>
+            </div>
+
             <label className="tunnel-setup-field">
               <span>{t(agentHelmStep.fields[3].label.key)}</span>
               <input
@@ -504,6 +501,18 @@ export function ExtensionSettingsControls({
                 {pending === 'tunnel:setup' ? t(agentHelmStep.submitting.key) : t(agentHelmStep.submitAction.key)}
               </button>
             </div>
+          </section>
+
+          <section className="tunnel-setup-step">
+            <strong>{t(openAiStep.title.key)}</strong>
+            <p className="tunnel-setup-copy">{t(openAiStep.description.key)}</p>
+            <p className="tunnel-setup-copy">{t(openAiStep.dependency.installDescription.key)}</p>
+            <div className="tunnel-setup-links">
+              <button type="button" className="secondary-button" onClick={() => onOpenUrl(openAiStep.links[0].href)}>{t(openAiStep.links[0].label.key)}</button>
+              {tunnelDependency?.state === 'unavailable' ? <button type="button" className="primary-button" disabled={pending !== null} onClick={() => onDependencyInstall('tunnelClient')}>{pending === 'tunnel:install' || pending === 'dependency:tunnelClient' ? t(openAiStep.dependency.installing.key) : t(openAiStep.dependency.installAction.key)}</button> : null}
+              <button type="button" className="secondary-button" onClick={() => onOpenUrl(tunnel.installUrl ?? openAiStep.dependency.downloadAction.href)}>{t(openAiStep.dependency.downloadAction.label.key)}</button>
+            </div>
+            {tunnelDependency?.state === 'unavailable' ? <p className="tunnel-setup-error">{t(openAiStep.dependency.required.key)}</p> : null}
           </section>
 
           <section className="tunnel-setup-step">

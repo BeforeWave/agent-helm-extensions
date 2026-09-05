@@ -85,6 +85,8 @@ button.popup-setting-row:hover { background: var(--helm-hover); }
 .tunnel-setup-error { color: #c44d5d; }
 .tunnel-setup-links, .tunnel-setup-actions { display: flex; flex-wrap: wrap; gap: 7px; }
 .tunnel-setup-field { display: flex; flex-direction: column; gap: 4px; color: var(--helm-secondary); font-size: 11px; line-height: 16px; }
+.tunnel-setup-field__control { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 7px; }
+.tunnel-setup-field__control input { min-width: 0; }
 .tunnel-setup-field input { box-sizing: border-box; width: 100%; min-height: 32px; padding: 6px 8px; border: 1px solid var(--helm-border-strong); border-radius: 7px; background: #fff; color: #25282e; font: 12px/18px ui-monospace,SFMono-Regular,Menlo,monospace; }
 .tunnel-setup-field input:focus { outline: 2px solid rgba(79,108,247,.22); border-color: var(--helm-business); }
 .popup-setting-controls { display: inline-flex; align-items: center; justify-content: flex-end; gap: 4px; }
