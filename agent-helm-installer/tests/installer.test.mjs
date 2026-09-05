@@ -9,8 +9,7 @@ import { buildInstallerRuntimeBundle } from '../runtime-bundle.mjs'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const manifest = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'))
-const compatibility = JSON.parse(readFileSync(resolve(root, '..', '..', '..', 'compatibility', 'chrome.json'), 'utf8'))
-const canonicalExtensionId = compatibility.chromeExtension.id
+const canonicalExtensionId = manifest.chromeExtension?.id
 const coreVersion = manifest.agentHelm.version
 const installerLib = join(root, 'scripts', 'installer-lib.sh')
 

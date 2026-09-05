@@ -9,8 +9,7 @@ import { fileURLToPath } from 'node:url'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const manifest = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'))
-const compatibility = JSON.parse(readFileSync(resolve(root, '..', '..', '..', 'compatibility', 'chrome.json'), 'utf8'))
-const canonicalExtensionId = compatibility.chromeExtension.id
+const canonicalExtensionId = manifest.chromeExtension?.id
 const scriptsRoot = join(root, 'scripts')
 const buildSource = readFileSync(join(root, 'build.mjs'), 'utf8')
 const preinstallSource = readFileSync(join(scriptsRoot, 'preinstall'), 'utf8')

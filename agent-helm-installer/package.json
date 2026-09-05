@@ -14,5 +14,8 @@
   },
   "agentHelm": {
     "version": "0.1.4"
+  },
+  "chromeExtension": {
+    "id": "eigfmmjccbiinngdfifjkpmofandcgif"
   }
 }
