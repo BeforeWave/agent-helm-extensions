@@ -37,6 +37,8 @@ button { color: inherit; }
 .icon-button { padding: 0; background: transparent; }
 .text-link { padding: 0; background: transparent; color: #4d5664; text-align: left; }
 .text-link:hover { text-decoration: underline; }
+.tunnel-external-link { display: inline-flex; align-items: center; gap: 4px; color: var(--helm-business); font-size: 12px; line-height: 18px; }
+.tunnel-external-link:focus-visible { outline: 2px solid rgba(79,108,247,.25); outline-offset: 2px; }
 .button-row { display: flex; flex-wrap: wrap; gap: 8px; }
 .button-with-icon, .detail-expand { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
 .button-icon, .chevron-icon { width: 14px; height: 14px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
@@ -85,8 +87,13 @@ button.popup-setting-row:hover { background: var(--helm-hover); }
 .tunnel-setup-error { color: #c44d5d; }
 .tunnel-setup-links, .tunnel-setup-actions { display: flex; flex-wrap: wrap; gap: 7px; }
 .tunnel-setup-field { display: flex; flex-direction: column; gap: 4px; color: var(--helm-secondary); font-size: 11px; line-height: 16px; }
-.tunnel-setup-field__control { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 7px; }
+.tunnel-setup-field__label { display: inline-flex; align-items: center; gap: 5px; width: max-content; max-width: 100%; }
+.tunnel-field-info { position: relative; width: 18px; height: 18px; min-height: 18px; padding: 0; border: 1px solid var(--helm-border-strong); border-radius: 50%; background: transparent; color: var(--helm-secondary); font-size: 10px; line-height: 16px; font-weight: 650; cursor: help; }
+.tunnel-field-info:hover, .tunnel-field-info:focus { color: #34373d; border-color: #b9bdc5; outline: none; }
+.tunnel-field-tooltip { position: fixed; z-index: 9999; transform: translateY(-100%); padding: 7px 9px; border-radius: 7px; background: #25282e; color: #fff; font-size: 11px; line-height: 16px; font-weight: 400; white-space: normal; text-align: left; box-shadow: 0 6px 20px rgba(20,24,30,.16); pointer-events: none; overflow-wrap: anywhere; }
+.tunnel-setup-field__control { display: grid; grid-template-columns: minmax(0,1fr) 44px; align-items: center; gap: 7px; }
 .tunnel-setup-field__control input { min-width: 0; }
+.tunnel-setup-field__control > .tunnel-external-link { justify-self: start; }
 .tunnel-setup-field input { box-sizing: border-box; width: 100%; min-height: 32px; padding: 6px 8px; border: 1px solid var(--helm-border-strong); border-radius: 7px; background: #fff; color: #25282e; font: 12px/18px ui-monospace,SFMono-Regular,Menlo,monospace; }
 .tunnel-setup-field input:focus { outline: 2px solid rgba(79,108,247,.22); border-color: var(--helm-business); }
 .popup-setting-controls { display: inline-flex; align-items: center; justify-content: flex-end; gap: 4px; }
@@ -185,8 +192,11 @@ button.popup-setting-row:hover { background: var(--helm-hover); }
 .detail-chatgpt-secondary--error { color: #b4233f; }
 .detail-chatgpt-actions { flex: none; display: inline-flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
 .compact-action { min-height: 26px; padding: 3px 8px; font-size: 11px; line-height: 16px; }
-.detail-section { padding: 14px 20px; border-bottom: 1px solid var(--helm-border); }
-.detail-section h2 { margin: 0 0 10px; font-size: 12px; line-height: 18px; font-weight: 700; }
+.detail-section { padding: 10px 20px; border-bottom: 1px solid var(--helm-border); }
+.detail-section[data-expanded=true] { padding-bottom: 14px; }
+.detail-section__toggle { width: 100%; display: flex; align-items: center; gap: 7px; padding: 2px 0; border: 0; background: transparent; color: inherit; font: 700 12px/18px inherit; text-align: left; cursor: pointer; }
+.detail-section__chevron { color: var(--helm-secondary); font-size: 11px; line-height: 18px; }
+.detail-section[data-expanded=true] .detail-section__toggle { margin-bottom: 10px; }
 .context-card { padding: 10px 12px; border: 1px solid var(--helm-border-strong); border-radius: 9px; }
 .context-card + .context-card { margin-top: 8px; }
 .context-card__head { display: flex; align-items: center; gap: 10px; }

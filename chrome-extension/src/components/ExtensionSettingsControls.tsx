@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { StatusDot } from '../components/Status'
 import { Switch } from '../components/Switch'
 import { runtimeStateLabel, t } from '../locale'
@@ -23,6 +24,53 @@ const CAPABILITIES = helmCapabilityDefinitions.map((definition) => ({
 }))
 
 type CapabilitySummaryItem = { icon: string; label: string }
+
+function TunnelFieldInfo({ label }: { label: string }): React.JSX.Element {
+  const buttonRef = useRef<HTMLButtonElement>(null)
+  const [hovered, setHovered] = useState(false)
+  const [focused, setFocused] = useState(false)
+  const [position, setPosition] = useState({ left: 12, top: 0, width: 280 })
+  const open = hovered || focused
+
+  useEffect(() => {
+    if (!open || typeof window === 'undefined') return
+    const update = () => {
+      const button = buttonRef.current
+      if (!button) return
+      const rect = button.getBoundingClientRect()
+      const viewportWidth = document.documentElement.clientWidth
+      const margin = 12
+      const width = Math.max(0, Math.min(300, viewportWidth - margin * 2))
+      const centeredLeft = rect.left + rect.width / 2 - width / 2
+      const left = Math.min(Math.max(margin, centeredLeft), Math.max(margin, viewportWidth - width - margin))
+      setPosition({ left, top: rect.top - 7, width })
+    }
+    update()
+    window.addEventListener('resize', update)
+    window.addEventListener('scroll', update, true)
+    return () => {
+      window.removeEventListener('resize', update)
+      window.removeEventListener('scroll', update, true)
+    }
+  }, [open])
+
+  return <>
+    <button
+      ref={buttonRef}
+      type="button"
+      className="tunnel-field-info"
+      aria-label={label}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+    >i</button>
+    {open && typeof document !== 'undefined' ? createPortal(
+      <div className="tunnel-field-tooltip" role="tooltip" style={{ left: position.left, top: position.top, width: position.width }}>{label}</div>,
+      document.body,
+    ) : null}
+  </>
+}
 
 function CapabilitySummary({ items }: { items: CapabilitySummaryItem[] }): React.JSX.Element {
   const rootRef = useRef<HTMLSpanElement>(null)
@@ -440,23 +488,21 @@ export function ExtensionSettingsControls({
         summary={summary}
       >
         <div className="tunnel-setup-panel">
-          <p className="tunnel-setup-copy">{t(tunnelOnboardingSource.description.key)}</p>
           {tunnel.message ? <p className="tunnel-setup-error">{tunnel.message}</p> : null}
 
           <section className="tunnel-setup-step">
             <strong>{t(agentHelmStep.title.key)}</strong>
-            <p className="tunnel-setup-copy">{t(agentHelmStep.description.key)}</p>
 
             <div className="tunnel-setup-field">
-              <span>{t(agentHelmStep.fields[0].label.key)}</span>
+              <span className="tunnel-setup-field__label">{t(agentHelmStep.fields[0].label.key)} <TunnelFieldInfo label={t(agentHelmStep.fields[0].description.key)} /></span>
               <div className="tunnel-setup-field__control">
                 <input value={tunnelId} onChange={(event) => setTunnelId(event.currentTarget.value)} autoComplete="off" spellCheck={false} />
-                <button type="button" className="secondary-button" onClick={() => onOpenUrl(agentHelmStep.fields[0].helpLink.href)}>{t('fieldGet')}</button>
+                <button type="button" className="text-link tunnel-external-link" onClick={() => onOpenUrl(agentHelmStep.fields[0].helpLink.href)}>{t('fieldGet')} <span aria-hidden="true">↗</span></button>
               </div>
             </div>
 
             <div className="tunnel-setup-field">
-              <span>{t(agentHelmStep.fields[1].label.key)}</span>
+              <span className="tunnel-setup-field__label">{t(agentHelmStep.fields[1].label.key)} <TunnelFieldInfo label={t(agentHelmStep.fields[1].description.key)} /></span>
               <div className="tunnel-setup-field__control">
                 <input
                   type="password"
@@ -466,31 +512,29 @@ export function ExtensionSettingsControls({
                   autoComplete="new-password"
                   spellCheck={false}
                 />
-                <button type="button" className="secondary-button" onClick={() => onOpenUrl(agentHelmStep.fields[1].helpLink.href)}>{t('fieldGet')}</button>
+                <button type="button" className="text-link tunnel-external-link" onClick={() => onOpenUrl(agentHelmStep.fields[1].helpLink.href)}>{t('fieldGet')} <span aria-hidden="true">↗</span></button>
               </div>
             </div>
-            <p className="tunnel-setup-copy">{tunnel.apiKeyConfigured ? t(agentHelmStep.configuredNote.key) : t(agentHelmStep.missingNote.key)}</p>
-
             <div className="tunnel-setup-field">
-              <span>{t(agentHelmStep.fields[2].label.key)}</span>
+              <span className="tunnel-setup-field__label">{t(agentHelmStep.fields[2].label.key)} <TunnelFieldInfo label={t(agentHelmStep.fields[2].description.key)} /></span>
               <div className="tunnel-setup-field__control">
                 <input value={organizationId} onChange={(event) => setOrganizationId(event.currentTarget.value)} autoComplete="off" spellCheck={false} />
-                <button type="button" className="secondary-button" onClick={() => onOpenUrl(agentHelmStep.fields[2].helpLink.href)}>{t('fieldGet')}</button>
+                <button type="button" className="text-link tunnel-external-link" onClick={() => onOpenUrl(agentHelmStep.fields[2].helpLink.href)}>{t('fieldGet')} <span aria-hidden="true">↗</span></button>
               </div>
             </div>
 
             <label className="tunnel-setup-field">
-              <span>{t(agentHelmStep.fields[3].label.key)}</span>
-              <input
-                value={proxyUrl}
-                placeholder={t(agentHelmStep.fields[3].savedPlaceholder.key)}
-                onChange={(event) => setProxyUrl(event.currentTarget.value)}
-                autoComplete="off"
-                spellCheck={false}
-              />
+              <span className="tunnel-setup-field__label">{t(agentHelmStep.fields[3].label.key)} <TunnelFieldInfo label={t(agentHelmStep.fields[3].description.key)} /></span>
+              <div className="tunnel-setup-field__control">
+                <input
+                  value={proxyUrl}
+                  placeholder={t(agentHelmStep.fields[3].savedPlaceholder.key)}
+                  onChange={(event) => setProxyUrl(event.currentTarget.value)}
+                  autoComplete="off"
+                  spellCheck={false}
+                />
+              </div>
             </label>
-            <p className="tunnel-setup-copy">{tunnel.proxyConfigured ? t(agentHelmStep.proxyConfiguredNote.key) : t(agentHelmStep.proxyMissingNote.key)}</p>
-            <p className="tunnel-setup-copy">{t(agentHelmStep.storageNote.key)}</p>
             <div className="tunnel-setup-actions">
               <button
                 type="button"
@@ -498,29 +542,32 @@ export function ExtensionSettingsControls({
                 disabled={pending !== null || !tunnelSetupCanSubmit({ tunnelId, apiKeyConfigured: tunnel.apiKeyConfigured ?? false, runtimeApiKey })}
                 onClick={() => { void submitTunnel() }}
               >
-                {pending === 'tunnel:setup' ? t(agentHelmStep.submitting.key) : t(agentHelmStep.submitAction.key)}
+                {pending === 'tunnel:setup' ? t(agentHelmStep.submitting.key) : tunnelDependency?.state === 'unavailable' ? t(agentHelmStep.saveAction.key) : t(agentHelmStep.submitAction.key)}
               </button>
+              {tunnelDependency?.state === 'unavailable' ? (
+                <button type="button" className="secondary-button" disabled={pending !== null} onClick={() => onDependencyInstall('tunnelClient')}>
+                  {pending === 'dependency:tunnelClient' ? t(openAiStep.dependency.installing.key) : t(openAiStep.dependency.installAction.key)}
+                </button>
+              ) : (
+                <button type="button" className="secondary-button" disabled>{t(openAiStep.dependency.installedAction.key)}</button>
+              )}
             </div>
           </section>
 
           <section className="tunnel-setup-step">
             <strong>{t(openAiStep.title.key)}</strong>
             <p className="tunnel-setup-copy">{t(openAiStep.description.key)}</p>
-            <p className="tunnel-setup-copy">{t(openAiStep.dependency.installDescription.key)}</p>
             <div className="tunnel-setup-links">
-              <button type="button" className="secondary-button" onClick={() => onOpenUrl(openAiStep.links[0].href)}>{t(openAiStep.links[0].label.key)}</button>
-              {tunnelDependency?.state === 'unavailable' ? <button type="button" className="primary-button" disabled={pending !== null} onClick={() => onDependencyInstall('tunnelClient')}>{pending === 'tunnel:install' || pending === 'dependency:tunnelClient' ? t(openAiStep.dependency.installing.key) : t(openAiStep.dependency.installAction.key)}</button> : null}
-              <button type="button" className="secondary-button" onClick={() => onOpenUrl(tunnel.installUrl ?? openAiStep.dependency.downloadAction.href)}>{t(openAiStep.dependency.downloadAction.label.key)}</button>
+              <button type="button" className="text-link tunnel-external-link" onClick={() => onOpenUrl(tunnel.installUrl ?? openAiStep.dependency.downloadAction.href)}>{t(openAiStep.dependency.downloadAction.label.key)} <span aria-hidden="true">↗</span></button>
             </div>
-            {tunnelDependency?.state === 'unavailable' ? <p className="tunnel-setup-error">{t(openAiStep.dependency.required.key)}</p> : null}
           </section>
 
           <section className="tunnel-setup-step">
             <strong>{t(chatGptStep.title.key)}</strong>
             <p className="tunnel-setup-copy">{t(chatGptStep.description.key)}</p>
-            <div className="tunnel-setup-actions">
-              <button type="button" className="secondary-button" onClick={() => onOpenUrl(chatGptStep.links[0].href)}>{t(chatGptStep.links[0].label.key)}</button>
-              <button type="button" className="secondary-button" onClick={() => onOpenUrl(chatGptStep.links[1].href)}>{t(chatGptStep.links[1].label.key)}</button>
+            <div className="tunnel-setup-links">
+              <button type="button" className="text-link tunnel-external-link" onClick={() => onOpenUrl(chatGptStep.links[0].href)}>{t(chatGptStep.links[0].label.key)} <span aria-hidden="true">↗</span></button>
+              <button type="button" className="text-link tunnel-external-link" onClick={() => onOpenUrl(chatGptStep.links[1].href)}>{t(chatGptStep.links[1].label.key)} <span aria-hidden="true">↗</span></button>
             </div>
           </section>
         </div>

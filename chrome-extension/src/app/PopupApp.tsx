@@ -56,7 +56,8 @@ export function PopupApp({ client }: { client: BrowserControlPlaneClient }): Rea
   }
 
   const presentation = deriveExtensionConnectionPresentation(snapshot, !snapshot && error ? error : null)
-  const visibleIssue = error ?? undefined
+  const coreIssue = snapshot?.settings.find((setting) => setting.id === 'core')?.message
+  const visibleIssue = error ?? coreIssue
 
   const openPanel = async () => {
     try {

@@ -83,6 +83,8 @@ export function SidePanelApp({ client }: { client: BrowserControlPlaneClient }) 
   const [detailLoading, setDetailLoading] = useState(false)
   const [pendingControl, setPendingControl] = useState<string | null>(null)
   const [loadingMoreWork, setLoadingMoreWork] = useState(false)
+  const coreIssue = snapshot?.settings.find((setting) => setting.id === 'core')?.message
+  const visibleIssue = error ?? coreIssue
   const listScrollRef = useRef<HTMLDivElement>(null)
   const rememberedScrollTop = useRef(0)
 
@@ -234,7 +236,7 @@ export function SidePanelApp({ client }: { client: BrowserControlPlaneClient }) 
         />
       </header>
 
-      {error ? <div className="error-banner sidepanel-error">{error}</div> : null}
+      {visibleIssue ? <div className="error-banner sidepanel-error">{visibleIssue}</div> : null}
 
       <section className="sidepanel-controls" aria-label={t('status')}>
         <LoadingSurface loading={loading && !snapshot} label={t('loading')}>

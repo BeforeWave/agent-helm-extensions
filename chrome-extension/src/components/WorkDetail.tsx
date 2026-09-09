@@ -70,7 +70,7 @@ function ContextCard({ intent, role, boundAt }: { intent: WorkConversationIntent
         <span className="context-card__role">{role}</span>
         <span className="context-card__message">{intent.message}</span>
       </div>
-      {boundAt ? <div className="context-card__meta"><span>{t('extensionBound')} · {formatTimestamp(boundAt)}</span></div> : null}
+      {boundAt ? <div className="context-card__meta"><span>{t('sessionBoundAt')} · {formatTimestamp(boundAt)}</span></div> : null}
       <details className="context-card__task">
         <summary>{t('sessionTaskContext')}</summary>
         <div>{intent.task}</div>
@@ -105,10 +105,12 @@ export function WorkDetail({
   onViewConversationWork,
 }: WorkDetailProps) {
   const [activityFilter, setActivityFilter] = useState<ActivityFilter>('all')
+  const [contextExpanded, setContextExpanded] = useState(false)
   const [binding, setBinding] = useState(false)
   const [bindingError, setBindingError] = useState<string | null>(null)
   const currentConversation = pageContext?.conversationUrl ?? null
   useEffect(() => { setBindingError(null) }, [currentConversation])
+  useEffect(() => { setContextExpanded(false) }, [detail.id])
   const directlyBound = isConversationBound(detail, pageContext)
   const linkedHere = Boolean(currentConversation) && (directlyBound || currentConversationWork?.id === detail.id)
   const linkedElsewhere = Boolean(currentConversation && currentConversationWork && currentConversationWork.id !== detail.id && !directlyBound)
@@ -192,10 +194,15 @@ export function WorkDetail({
         </dl>
       </section>
 
-      <section className="detail-section">
-        <h2>{t('extensionOriginContext')}</h2>
-        {detail.boundIntents.map((entry, index) => <ContextCard key={`${entry.boundAt}:${index}`} intent={entry.intent} boundAt={entry.boundAt} role={t('extensionBoundNumber', { index: detail.boundIntents.length - index })} />)}
-        {detail.originIntent ? <ContextCard intent={detail.originIntent} role={t('sessionOriginChat')} /> : detail.boundIntents.length ? null : <div className="empty-state">{t('extensionNoWorkContext')}</div>}
+      <section className="detail-section" data-expanded={contextExpanded}>
+        <button type="button" className="detail-section__toggle" aria-expanded={contextExpanded} onClick={() => setContextExpanded((value) => !value)}>
+          <span>{t('sessionWorkContext')}</span>
+          <span className="detail-section__chevron" aria-hidden="true">{contextExpanded ? '▾' : '▸'}</span>
+        </button>
+        {contextExpanded ? <>
+          {detail.boundIntents.map((entry, index) => <ContextCard key={`${entry.boundAt}:${index}`} intent={entry.intent} boundAt={entry.boundAt} role={`${t('sessionBoundChats')} ${detail.boundIntents.length - index}`} />)}
+          {detail.originIntent ? <ContextCard intent={detail.originIntent} role={t('sessionOriginChat')} /> : detail.boundIntents.length ? null : <div className="empty-state">{t('sessionUnboundContext')}</div>}
+        </> : null}
       </section>
 
       <section className="timeline-section">
