@@ -29,6 +29,13 @@ describe('Work Detail context ordering', () => {
 
     expect(boundContexts).toBeGreaterThan(-1)
     expect(originContext).toBeGreaterThan(boundContexts)
+    expect(source).toContain("t('sessionWorkContext')")
+    expect(source).toContain('data-expanded={contextExpanded}')
+    expect(source).toContain("setContextExpanded(false)")
+    expect(source).toContain("t('sessionBoundAt')")
+    expect(source).toContain("t('sessionBoundChats')")
+    expect(source).toContain("t('sessionUnboundContext')")
+    expect(source).not.toContain("t('extensionOriginContext')")
   })
 })
 
