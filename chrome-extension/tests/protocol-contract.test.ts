@@ -14,6 +14,13 @@ it('keeps Chrome Native Messaging method paths on the frozen entry contract', ()
     'bindChatUrl', 'chooseAndRegisterWorkspace', 'configureTunnel', 'findChatSessionSummaryByUrl',
     'getChatSessionSummary', 'getChatSessionTimeline', 'getExternalUserAccess', 'installDependency',
     'listChatSessionSummaryPage', 'listWorkspaces', 'setAgentDelegationEnabled', 'setDaemonEnabled',
-    'setExternalUserAccess', 'setLocalMcpEnabled', 'supervisorHealth',
+    'setExternalAgentLspEnabled', 'setExternalUserAccess', 'setLocalMcpEnabled', 'supervisorHealth',
   ])
+})
+
+
+it('keeps the additive External Code Sense control backward-compatible with older Core health', () => {
+  const source = read('../src/adapters/chrome/NativeAgentHelmService.ts')
+  expect(source).toContain("const externalAgentLspStateKnown = typeof health.externalAgentLspEnabled === 'boolean'")
+  expect(source).toContain('const externalAgentLspConfigurable = externalAgentLspStateKnown && booleanValue(policy.semantic)')
 })

@@ -40,6 +40,7 @@ describe('native Core snapshot projection', () => {
       health: { status: 'ok', nativeUi: true },
     }],
     localMcp: { enabled: true, url: 'http://127.0.0.1:3456/mcp' },
+    externalAgentLspEnabled: true,
     externalCapabilities: { command: true, semantic: true, read_only: false, delegate: true },
     externalUserAccess: { enabled: true, mutations: true, delegation: true },
     effectiveExternalCapabilities: { command: true, semantic: true, read_only: false, delegate: true },
@@ -77,6 +78,7 @@ describe('native Core snapshot projection', () => {
     })
     expect(snapshot.agents).toEqual([{ id: 'dsh', name: 'DSH', logo: 'DSH', enabled: true, configurable: true, runtimeState: 'ready' }])
     expect(snapshot.settings.map((setting) => [setting.id, setting.enabled, setting.state])).toEqual([
+      ['external-agent-lsp', true, 'running'],
       ['local-agent-lsp', true, 'running'],
       ['tunnel', undefined, 'running'],
       ['core', true, 'running'],
@@ -97,6 +99,19 @@ describe('native Core snapshot projection', () => {
     })
   })
 
+
+  it('keeps older Core health usable while disabling only the unsupported ChatGPT Code Sense toggle', () => {
+    const { externalAgentLspEnabled: _omitted, ...legacyHealth } = health
+    const snapshot = projectNativeSnapshot(legacyHealth, summaries)
+    expect(snapshot.settings.find((setting) => setting.id === 'external-agent-lsp')).toMatchObject({
+      enabled: true,
+      configurable: false,
+      state: 'unavailable',
+    })
+    expect(snapshot.settings.find((setting) => setting.id === 'local-agent-lsp')).toMatchObject({ configurable: true })
+    expect(snapshot.settings.find((setting) => setting.id === 'tunnel')).toMatchObject({ state: 'running' })
+    expect(snapshot.settings.find((setting) => setting.id === 'core')).toMatchObject({ state: 'running' })
+  })
 
   it('allows the total switch only for a daemon process started by this Extension client', () => {
     const external = projectNativeSnapshot({
@@ -140,7 +155,7 @@ describe('native Core snapshot projection', () => {
     expect(snapshot.agents[0]).toMatchObject({ runtimeState: 'error', message: 'DSH adapter unavailable' })
     expect(deriveExtensionConnectionPresentation(snapshot)).toEqual({
       state: 'error',
-      issue: 'Tunnel: Missing required environment: CONTROL_PLANE_TUNNEL_ID',
+      issue: 'ChatGPT Secure Tunnel: Missing required environment: CONTROL_PLANE_TUNNEL_ID',
     })
   })
 
@@ -198,6 +213,7 @@ describe('native host bootstrap projection', () => {
       state: 'error',
       message: 'Agent Helm daemon at /tmp/agent-helm-test.sock is running but does not support the current browser control protocol. Restart Agent Helm with the current version.',
     })
+    expect(snapshot.settings.find((setting) => setting.id === 'external-agent-lsp')).toMatchObject({ state: 'unavailable', configurable: false })
     expect(snapshot.settings.find((setting) => setting.id === 'local-agent-lsp')).toMatchObject({ state: 'unavailable', configurable: false })
     expect(snapshot.settings.find((setting) => setting.id === 'tunnel')).toMatchObject({ state: 'unavailable' })
     expect(deriveExtensionConnectionPresentation(snapshot)).toEqual({
@@ -265,6 +281,7 @@ describe('Issue #12 control-plane projection', () => {
     const service = new MockAgentHelmService()
     const snapshot = await service.getSnapshot()
     expect(snapshot.settings.map((setting) => [setting.id, setting.kind])).toEqual([
+      ['external-agent-lsp', 'toggle'],
       ['local-agent-lsp', 'toggle'],
       ['tunnel', 'status'],
       ['core', 'toggle'],

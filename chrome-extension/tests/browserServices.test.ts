@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import extensionManifest from '../package.json'
 import { agentHelmInstallerSourceForRelease, agentHelmMacosInstallerFilename } from '@beforewave/agent-helm-ui-contract'
@@ -82,6 +83,41 @@ describe('browser service helpers', () => {
     })
     try {
       await expect(new ChromeBrowserCapabilities().downloadFile(agentHelmInstallerSource.macos.downloadUrl, 'installer.pkg')).rejects.toThrow('Download permission is required')
+    } finally {
+      if (previousChrome) Object.defineProperty(globalThis, 'chrome', previousChrome)
+      else delete (globalThis as { chrome?: unknown }).chrome
+    }
+  })
+
+  it('hands Popup Agents navigation to the Side Panel exactly once through session storage', async () => {
+    const previousChrome = Object.getOwnPropertyDescriptor(globalThis, 'chrome')
+    const sessionState: Record<string, unknown> = {}
+    const openedWindows: number[] = []
+    Object.defineProperty(globalThis, 'chrome', {
+      configurable: true,
+      value: {
+        windows: { async getCurrent() { return { id: 17 } } },
+        sidePanel: { async open({ windowId }: { windowId: number }) { openedWindows.push(windowId) } },
+        storage: {
+          session: {
+            async set(value: Record<string, unknown>) { Object.assign(sessionState, value) },
+            async get(key: string) { return { [key]: sessionState[key] } },
+            async remove(key: string) { delete sessionState[key] },
+          },
+        },
+      },
+    })
+    try {
+      const browser = new ChromeBrowserCapabilities()
+      await browser.openSidePanel('agents')
+      expect(openedWindows).toEqual([17])
+      expect(sessionState.agentHelmPendingSettingsSection).toBe('agents')
+      expect(await browser.consumePendingSettingsSection()).toBe('agents')
+      expect(await browser.consumePendingSettingsSection()).toBeNull()
+      await browser.openSidePanel('tunnel')
+      expect(sessionState.agentHelmPendingSettingsSection).toBe('tunnel')
+      expect(await browser.consumePendingSettingsSection()).toBe('tunnel')
+      expect(openedWindows).toEqual([17, 17])
     } finally {
       if (previousChrome) Object.defineProperty(globalThis, 'chrome', previousChrome)
       else delete (globalThis as { chrome?: unknown }).chrome
@@ -294,8 +330,8 @@ describe('browser service helpers', () => {
     expect(markup).toContain('loading-surface__content')
     expect(markup).toContain('Capabilities')
     expect(markup).toContain('Agents')
-    expect(markup).toContain('Local Agent LSP')
-    expect(markup).toContain('Tunnel')
+    expect(markup).toContain('Code Sense')
+    expect(markup).toContain('ChatGPT Secure Tunnel')
   })
 
   it('keeps the Accordion row as disclosure while the title owns the separate action', async () => {
@@ -344,6 +380,29 @@ describe('browser service helpers', () => {
     expect(requests[0]).toEqual({ method: 'configureTunnel', params: [{ tunnelId: 'tunnel_saved', organizationId: 'org_saved', apiKey: 'runtime-secret', proxyUrl: 'http://proxy-user:proxy-pass@127.0.0.1:7890' }] })
     expect(snapshot.settings.find((setting) => setting.id === 'tunnel')).toMatchObject({ tunnelId: 'tunnel_saved', organizationId: 'org_saved', apiKeyConfigured: true, proxyConfigured: true, proxyUrl: 'http://proxy-user:proxy-pass@127.0.0.1:7890' })
     expect(JSON.stringify(snapshot)).not.toContain('runtime-secret')
+  })
+
+
+  it('keeps dev:web as a thin host around the production Extension apps', async () => {
+    const source = readFileSync(new URL('../preview/PreviewApp.tsx', import.meta.url), 'utf8')
+    expect(source).toContain("import { PopupApp } from '../src/app/PopupApp'")
+    expect(source).toContain("import { SidePanelApp } from '../src/app/SidePanelApp'")
+    expect(source).toContain("import { ExpandedDetailApp } from '../src/app/ExpandedDetailApp'")
+    expect(source).toContain('<PopupApp client={runtime.client} />')
+    expect(source).toContain('<SidePanelApp client={runtime.client} />')
+    expect(source).toContain('Language')
+    expect(source).toContain('Theme')
+    expect(source).not.toContain('popup-setting-row')
+
+    const { MockBrowserCapabilities } = await import('../src/adapters/mock/MockBrowserCapabilities')
+    let section: 'agents' | 'tunnel' | undefined
+    const browser = new MockBrowserCapabilities({ onOpenSidePanel: (value) => { section = value } })
+    await browser.openSidePanel('agents')
+    expect(section).toBe('agents')
+    expect(await browser.consumePendingSettingsSection()).toBe('agents')
+    await browser.openSidePanel('tunnel')
+    expect(section).toBe('tunnel')
+    expect(await browser.consumePendingSettingsSection()).toBe('tunnel')
   })
 
 })
