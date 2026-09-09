@@ -24,14 +24,18 @@ export interface AgentHelmServiceAdapter {
   bindConversation(workId: string, pageContext: PageContext): Promise<WorkHistoryDetail>
 }
 
+export type BrowserSettingsSection = 'agents' | 'tunnel'
+
 export interface BrowserCapabilities {
   getCurrentPageContext(): Promise<PageContext>
   subscribePageContext(listener: (context: PageContext) => void): () => void
-  openSidePanel(): Promise<void>
+  openSidePanel(section?: BrowserSettingsSection): Promise<void>
+  closePopup(): void
   openExternalUrl(url: string): Promise<void>
   downloadFile(url: string, filename: string): Promise<void>
   openExpandedDetail(workId: string): Promise<void>
   openLocalDeepLink(url: string): Promise<void>
   notifyWork(notification: WorkNotification): Promise<void>
   consumePendingWorkId(): Promise<string | null>
+  consumePendingSettingsSection(): Promise<BrowserSettingsSection | null>
 }

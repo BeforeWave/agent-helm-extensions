@@ -97,6 +97,9 @@ export function projectNativeSnapshot(healthValue: unknown, summariesValue: unkn
   const supportsCode = supportsUnderstand && !booleanValue(policy.read_only)
   const supportsCommand = booleanValue(policy.delegate)
   const understandEnabled = booleanValue(access.enabled)
+  const externalAgentLspStateKnown = typeof health.externalAgentLspEnabled === 'boolean'
+  const externalAgentLspEnabled = externalAgentLspStateKnown ? health.externalAgentLspEnabled === true : true
+  const externalAgentLspConfigurable = externalAgentLspStateKnown && booleanValue(policy.semantic)
   const codeEnabled = understandEnabled && booleanValue(access.mutations) && supportsCode
   const commandEnabled = understandEnabled && booleanValue(access.delegation) && supportsCommand
 
@@ -173,6 +176,18 @@ export function projectNativeSnapshot(healthValue: unknown, summariesValue: unkn
     agents,
     settings: [
       {
+        id: 'external-agent-lsp',
+        label: t('externalAgentLsp'),
+        kind: 'toggle',
+        enabled: externalAgentLspEnabled,
+        configurable: externalAgentLspConfigurable,
+        state: !externalAgentLspStateKnown || !booleanValue(policy.semantic)
+          ? 'unavailable'
+          : coreRunning && externalAgentLspEnabled
+            ? 'running'
+            : 'stopped',
+      },
+      {
         id: 'local-agent-lsp',
         label: t('localMcp'),
         kind: 'toggle',
@@ -246,6 +261,14 @@ function unavailableSnapshot(
     },
     agents: [],
     settings: [
+      {
+        id: 'external-agent-lsp',
+        label: t('externalAgentLsp'),
+        kind: 'toggle',
+        enabled: false,
+        configurable: false,
+        state: dependentState,
+      },
       {
         id: 'local-agent-lsp',
         label: t('localMcp'),
@@ -372,6 +395,7 @@ export class NativeAgentHelmService implements AgentHelmServiceAdapter {
 
   async setSetting(settingId: string, enabled: boolean): Promise<ControlPlaneSnapshot> {
     if (settingId === 'core') await this.transport.request('setDaemonEnabled', [enabled], 30_000)
+    else if (settingId === 'external-agent-lsp') await this.transport.request('setExternalAgentLspEnabled', [enabled])
     else if (settingId === 'local-agent-lsp') await this.transport.request('setLocalMcpEnabled', [enabled])
     else throw new Error(`Setting is not writable: ${settingId}`)
     return await this.getSnapshot()

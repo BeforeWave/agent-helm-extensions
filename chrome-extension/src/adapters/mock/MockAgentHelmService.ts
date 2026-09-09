@@ -1,5 +1,6 @@
 import { tunnelSetupLinks, type TunnelSetupValues } from '@beforewave/agent-helm-ui-contract'
 import type { AgentHelmServiceAdapter } from '../../models/adapters'
+import { t } from '../../locale'
 import type {
   CapabilityKey,
   ControlPlaneSnapshot,
@@ -110,8 +111,9 @@ export class MockAgentHelmService implements AgentHelmServiceAdapter {
       { id: 'dsh', name: 'DSH', logo: 'DSH', enabled: true, configurable: true, runtimeState: 'ready' },
     ],
     settings: [
-      { id: 'local-agent-lsp', label: 'Local Agent LSP', kind: 'toggle', enabled: true, configurable: true, state: 'running' },
-      { id: 'tunnel', label: 'Tunnel', kind: 'status', state: 'running', tunnelId: 'tunnel_preview', organizationId: 'org_preview', apiKeyConfigured: true, proxyConfigured: true, proxyUrl: 'http://127.0.0.1:7890', dependencyAvailable: true, adminUrl: tunnelSetupLinks.tunnels },
+      { id: 'external-agent-lsp', label: 'ChatGPT', kind: 'toggle', enabled: true, configurable: true, state: 'running' },
+      { id: 'local-agent-lsp', label: 'Local Agents', kind: 'toggle', enabled: true, configurable: true, state: 'running' },
+      { id: 'tunnel', label: t('tunnel'), kind: 'status', state: 'running', tunnelId: 'tunnel_preview', organizationId: 'org_preview', apiKeyConfigured: true, proxyConfigured: true, proxyUrl: 'http://127.0.0.1:7890', dependencyAvailable: true, adminUrl: tunnelSetupLinks.tunnels },
       { id: 'core', label: 'Agent Helm Service', kind: 'toggle', enabled: true, configurable: true, state: 'running' },
     ],
     workspaces: [
@@ -126,6 +128,12 @@ export class MockAgentHelmService implements AgentHelmServiceAdapter {
     ['work-tunnel-errors', makeDetail(works[1]!, 'https://chatgpt.com/c/mock-tunnel-errors', 'Propagate existing Tunnel runtime error state to parent UI surfaces.')],
     ['work-forma', makeDetail(works[2]!, 'https://chatgpt.com/c/mock-forma', 'Inspect the current workspace state.')],
   ])
+
+  setLocalAgentConnected(connected: boolean): void {
+    this.snapshot.agents = connected
+      ? [{ id: 'dsh', name: 'DSH', logo: 'DSH', enabled: true, configurable: true, runtimeState: 'ready' }]
+      : []
+  }
 
   setConnectionState(state: ControlPlaneSnapshot['connection']['state']): void {
     this.snapshot.connection = { state, ...(state === 'connected' ? { message: 'Mock Agent Helm service' } : { message: `Preview ${state} state` }) }

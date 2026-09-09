@@ -83,6 +83,8 @@ export function SidePanelApp({ client }: { client: BrowserControlPlaneClient }) 
   const [detailLoading, setDetailLoading] = useState(false)
   const [pendingControl, setPendingControl] = useState<string | null>(null)
   const [loadingMoreWork, setLoadingMoreWork] = useState(false)
+  const [agentsInitiallyExpanded, setAgentsInitiallyExpanded] = useState(false)
+  const [tunnelInitiallyExpanded, setTunnelInitiallyExpanded] = useState(false)
   const coreIssue = snapshot?.settings.find((setting) => setting.id === 'core')?.message
   const visibleIssue = error ?? coreIssue
   const listScrollRef = useRef<HTMLDivElement>(null)
@@ -97,6 +99,15 @@ export function SidePanelApp({ client }: { client: BrowserControlPlaneClient }) 
   }), [snapshot, workspaceFilter, selectedWorkId])
   const visibleWorks = workHistory.items
   const workHistoryLoading = (loading && !snapshot) || !currentConversation.resolved
+
+  useEffect(() => {
+    let cancelled = false
+    void client.consumePendingSettingsSection().then((section) => {
+      if (!cancelled && section === 'agents') setAgentsInitiallyExpanded(true)
+      if (!cancelled && section === 'tunnel') setTunnelInitiallyExpanded(true)
+    }).catch(() => {})
+    return () => { cancelled = true }
+  }, [client])
 
   useEffect(() => {
     let cancelled = false
@@ -245,10 +256,12 @@ export function SidePanelApp({ client }: { client: BrowserControlPlaneClient }) 
             loading={loading && !snapshot}
             pending={pendingControl}
             capabilitiesInitiallyExpanded={false}
+            agentsInitiallyExpanded={agentsInitiallyExpanded}
+            tunnelInitiallyExpanded={tunnelInitiallyExpanded}
             includeCoreRow={false}
             showInstallGuidance
             dependencySetupMode="expandable"
-            sectionOrder={['capabilities', 'agents', 'local-agent-lsp', 'tunnel']}
+            sectionOrder={['capabilities', 'code-sense', 'tunnel', 'agents']}
             onCapabilityChange={(capability, enabled) => {
               void mutateControl(`capability:${capability}`, () => client.setCapability(capability, enabled))
             }}

@@ -1,4 +1,4 @@
-import type { BrowserCapabilities } from '../../models/adapters'
+import type { BrowserCapabilities, BrowserSettingsSection } from '../../models/adapters'
 import { t } from '../../locale'
 import type { PageContext, WorkNotification } from '../../models/controlPlane'
 import { isSupportedLocalDeepLink } from '../../services/deepLink'
@@ -30,10 +30,15 @@ export class ChromeBrowserCapabilities implements BrowserCapabilities {
     }
   }
 
-  async openSidePanel(): Promise<void> {
+  async openSidePanel(section?: BrowserSettingsSection): Promise<void> {
+    if (section) await chrome.storage.session.set({ agentHelmPendingSettingsSection: section })
     const current = await chrome.windows.getCurrent()
     if (typeof current.id !== 'number') throw new Error('No active browser window')
     await chrome.sidePanel.open({ windowId: current.id })
+  }
+
+  closePopup(): void {
+    window.close()
   }
 
   async openExternalUrl(url: string): Promise<void> {
@@ -86,5 +91,12 @@ export class ChromeBrowserCapabilities implements BrowserCapabilities {
     const workId = typeof value.agentHelmPendingWorkId === 'string' ? value.agentHelmPendingWorkId : null
     if (workId) await chrome.storage.session.remove('agentHelmPendingWorkId')
     return workId
+  }
+
+  async consumePendingSettingsSection(): Promise<BrowserSettingsSection | null> {
+    const value = await chrome.storage.session.get('agentHelmPendingSettingsSection')
+    const section = value.agentHelmPendingSettingsSection === 'agents' || value.agentHelmPendingSettingsSection === 'tunnel' ? value.agentHelmPendingSettingsSection : null
+    if (section) await chrome.storage.session.remove('agentHelmPendingSettingsSection')
+    return section
   }
 }

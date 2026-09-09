@@ -8,7 +8,6 @@ import extensionManifest from '../../package.json'
 import { agentHelmInstallerSourceForRelease, agentHelmMacosInstallerFilename, tunnelOnboardingSource, tunnelSetupCanSubmit, type TunnelSetupValues } from '@beforewave/agent-helm-ui-contract'
 
 import { Accordion } from '../components/Accordion'
-import { ChevronIcon } from '../components/Icons'
 
 import {
   deriveHelmCapabilitySummary,
@@ -105,13 +104,13 @@ function CapabilitySummary({ items }: { items: CapabilitySummaryItem[] }): React
   )
 }
 
-export type ExtensionSettingsSection = 'capabilities' | 'agents' | 'local-agent-lsp' | 'tunnel'
+export type ExtensionSettingsSection = 'capabilities' | 'agents' | 'code-sense' | 'tunnel'
 
 export const DEFAULT_EXTENSION_SETTINGS_SECTION_ORDER: readonly ExtensionSettingsSection[] = [
   'capabilities',
-  'agents',
-  'local-agent-lsp',
+  'code-sense',
   'tunnel',
+  'agents',
 ]
 
 type SettingsControlsProps = {
@@ -120,12 +119,16 @@ type SettingsControlsProps = {
   loading?: boolean
   capabilitiesInitiallyExpanded?: boolean
   agentsInitiallyExpanded?: boolean
+  agentsMode?: 'accordion' | 'navigate'
+  codeSenseInitiallyExpanded?: boolean
+  tunnelInitiallyExpanded?: boolean
   includeCoreRow?: boolean
   showInstallGuidance?: boolean
   dependencySetupMode?: 'status-only' | 'expandable'
   sectionOrder?: readonly ExtensionSettingsSection[]
   onCapabilityChange: (capability: CapabilityKey, enabled: boolean) => void
   onAgentChange: (agentId: string, enabled: boolean) => void
+  onAgentsNavigate?: () => void
   onTunnelSetup?: (input: TunnelSetupValues) => Promise<import('../models/controlPlane').ControlPlaneSnapshot>
   onTunnelNavigate?: () => void
   onSettingChange: (settingId: string, enabled: boolean) => void
@@ -175,20 +178,11 @@ function AgentSummary({ agents }: { agents: Array<{ id: string; name: string; lo
   )
 }
 
-function CopyableCommand({ command }: { command: string }): React.JSX.Element {
-  const [copied, setCopied] = useState(false)
-  const copy = () => {
-    void navigator.clipboard?.writeText(command).then(() => {
-      setCopied(true)
-      window.setTimeout(() => setCopied(false), 1500)
-    }).catch(() => {})
-  }
-  const label = t(copied ? 'commandCopied' : 'copyCommand')
+function InstallCommand({ command }: { command: string }): React.JSX.Element {
   return (
-    <button type="button" className="copyable-command" title={label} aria-label={label} onClick={copy}>
-      <code className="copyable-command__text">{command}</code>
-      <span className="copyable-command__action">{label}</span>
-    </button>
+    <div className="install-command">
+      <code className="install-command__text">{command}</code>
+    </div>
   )
 }
 
@@ -230,17 +224,17 @@ export function InstallAgentHelmGuidance({
         <>
           <p className="extension-install-warning">{t('extensionInstallAgentHelmUnsigned')}</p>
           <p className="extension-install-warning">{t('extensionInstallAgentHelmGatekeeperHint')}</p>
-          <CopyableCommand command={gatekeeperCommand} />
+          <InstallCommand command={gatekeeperCommand} />
         </>
       )}
       <details>
         <summary>{t('extensionInstallAgentHelmTerminalFirst')}</summary>
         <p>{t('extensionInstallAgentHelmTerminalFirstDescription')}</p>
-        <CopyableCommand command={installChromeCommand} />
+        <InstallCommand command={installChromeCommand} />
       </details>
       <details>
         <summary>{t('extensionInstallAgentHelmTerminalFallback')}</summary>
-        <CopyableCommand command={repairCommand} />
+        <InstallCommand command={repairCommand} />
       </details>
     </div>
   )
@@ -252,12 +246,16 @@ export function ExtensionSettingsControls({
   loading = false,
   capabilitiesInitiallyExpanded = false,
   agentsInitiallyExpanded = false,
+  agentsMode = 'accordion',
+  codeSenseInitiallyExpanded = false,
+  tunnelInitiallyExpanded = false,
   includeCoreRow = true,
   showInstallGuidance = false,
   dependencySetupMode = 'status-only',
   sectionOrder = DEFAULT_EXTENSION_SETTINGS_SECTION_ORDER,
   onCapabilityChange,
   onAgentChange,
+  onAgentsNavigate,
   onTunnelSetup,
   onTunnelNavigate,
   onSettingChange,
@@ -265,15 +263,31 @@ export function ExtensionSettingsControls({
   onOpenUrl,
   onInstallerDownload,
 }: SettingsControlsProps): React.JSX.Element {
-  const [capabilitiesExpanded, setCapabilitiesExpanded] = useState(capabilitiesInitiallyExpanded)
-  const [agentsExpanded, setAgentsExpanded] = useState(agentsInitiallyExpanded)
-  const [localAgentLspExpanded, setLocalAgentLspExpanded] = useState(false)
-  const [tunnelExpanded, setTunnelExpanded] = useState(false)
+  const [expandedSection, setExpandedSection] = useState<ExtensionSettingsSection | null>(() => {
+    if (agentsMode === 'accordion' && agentsInitiallyExpanded) return 'agents'
+    if (tunnelInitiallyExpanded) return 'tunnel'
+    if (codeSenseInitiallyExpanded) return 'code-sense'
+    if (capabilitiesInitiallyExpanded) return 'capabilities'
+    return null
+  })
+  useEffect(() => { if (agentsMode === 'accordion' && agentsInitiallyExpanded) setExpandedSection('agents') }, [agentsInitiallyExpanded, agentsMode])
+  useEffect(() => { if (tunnelInitiallyExpanded) setExpandedSection('tunnel') }, [tunnelInitiallyExpanded])
+  useEffect(() => { if (codeSenseInitiallyExpanded) setExpandedSection('code-sense') }, [codeSenseInitiallyExpanded])
+  useEffect(() => { if (capabilitiesInitiallyExpanded) setExpandedSection('capabilities') }, [capabilitiesInitiallyExpanded])
+  const toggleSection = (section: ExtensionSettingsSection) => setExpandedSection((current) => current === section ? null : section)
   const [tunnelId, setTunnelId] = useState('')
   const [organizationId, setOrganizationId] = useState('')
   const [runtimeApiKey, setRuntimeApiKey] = useState('')
   const [proxyUrl, setProxyUrl] = useState('')
   const core = snapshot?.settings.find((setting) => setting.id === 'core')
+  const externalAgentLsp = snapshot?.settings.find((setting) => setting.id === 'external-agent-lsp') ?? (loading ? {
+    id: 'external-agent-lsp',
+    label: t('externalAgentLsp'),
+    kind: 'toggle' as const,
+    state: 'unavailable' as const,
+    enabled: true,
+    configurable: false,
+  } : undefined)
   const localAgentLsp = snapshot?.settings.find((setting) => setting.id === 'local-agent-lsp') ?? (loading ? {
     id: 'local-agent-lsp',
     label: t('localMcp'),
@@ -314,11 +328,9 @@ export function ExtensionSettingsControls({
 
 
   const toggleTunnel = () => {
-    setTunnelExpanded((current) => {
-      const next = !current
-      if (next) seedTunnelFields()
-      return next
-    })
+    const opening = expandedSection !== 'tunnel'
+    if (opening) seedTunnelFields()
+    setExpandedSection(opening ? 'tunnel' : null)
   }
 
   const submitTunnel = async () => {
@@ -343,9 +355,9 @@ export function ExtensionSettingsControls({
         <Accordion
           key={section}
           title={t('capabilityGroup')}
-          expanded={capabilitiesExpanded}
+          expanded={expandedSection === 'capabilities'}
           disabled={loading}
-          onToggle={() => setCapabilitiesExpanded((current) => !current)}
+          onToggle={() => toggleSection('capabilities')}
           summary={<CapabilitySummary items={enabledCapabilities} />}
         >
           {CAPABILITIES.map((definition) => {
@@ -367,16 +379,29 @@ export function ExtensionSettingsControls({
     }
 
     if (section === 'agents') {
+      if (agentsMode === 'navigate') {
+        return (
+          <button key={section} type="button" className="popup-setting-row" onClick={onAgentsNavigate} disabled={!onAgentsNavigate}>
+            <span className="popup-setting-name">{t('extensionAgents')}</span>
+            <span className="popup-setting-controls">
+              {agentsExpandable ? <AgentSummary agents={enabledAgents} /> : null}
+              <span className="popup-panel-entry__arrow" aria-hidden="true">›</span>
+            </span>
+          </button>
+        )
+      }
       return (
         <Accordion
           key={section}
-          title="Agents"
-          expanded={agentsExpanded}
-          disabled={!agentsExpandable}
-          onToggle={() => setAgentsExpanded((current) => !current)}
-          summary={<AgentSummary agents={enabledAgents} />}
+          title={t('extensionAgents')}
+          expanded={expandedSection === 'agents'}
+          disabled={loading}
+          onToggle={() => toggleSection('agents')}
+          summary={agentsExpandable ? <AgentSummary agents={enabledAgents} /> : undefined}
         >
-          {(snapshot?.agents ?? []).map((agent) => (
+          {(snapshot?.agents ?? []).length === 0 ? (
+            <div className="popup-subrow"><span className="popup-subrow__name">{t('extensionNoLocalAgent')}</span></div>
+          ) : (snapshot?.agents ?? []).map((agent) => (
             <div key={agent.id} className="popup-subrow">
               <span className="popup-subrow__name">
                 <span className="popup-agent-mark" aria-hidden="true">{agentLogoLabel(agent)}</span>
@@ -394,48 +419,58 @@ export function ExtensionSettingsControls({
       )
     }
 
-    if (section === 'local-agent-lsp') {
-      if (!localAgentLsp) return null
+    if (section === 'code-sense') {
+      if (!externalAgentLsp && !localAgentLsp) return null
       const serenaUnavailable = serenaDependency?.state === 'unavailable'
       const issue = serenaUnavailable
         ? `${t('serenaDependencyIssue')}: ${serenaDependency.installCommand ? t('serenaInstallDescription') : t('serenaManualDescription')}`
-        : localAgentLsp.message
-      const statusState = serenaUnavailable || localAgentLsp.state === 'unavailable' || localAgentLsp.state === 'error'
+        : externalAgentLsp?.message ?? localAgentLsp?.message
+      const codeSenseState: import('../models/controlPlane').RuntimeState = serenaUnavailable
         ? 'error'
-        : localAgentLsp.state
-      const canExpand = dependencySetupMode === 'expandable' && serenaUnavailable
+        : serenaDependency?.state === 'ready' || serenaDependency?.state === 'running'
+          ? 'running'
+          : 'stopped'
+      const dependencySetupVisible = dependencySetupMode === 'expandable' && serenaUnavailable
       return (
-        <section key={section} className="popup-dependency-section">
-          <div className="popup-setting-row">
-            <span className="popup-setting-name">{localAgentLsp.label}</span>
-            <span className="popup-setting-controls">
-              <span className="popup-setting-state" role="img" title={issue} aria-label={issue ?? runtimeStateLabel(localAgentLsp.state)}>
-                <StatusDot state={statusState} />
-              </span>
+        <Accordion
+          key={section}
+          title={t('codeSense')}
+          expanded={expandedSection === 'code-sense'}
+          disabled={loading}
+          onToggle={() => toggleSection('code-sense')}
+          summary={(
+            <span className="popup-runtime-state" role="img" title={issue} aria-label={issue ?? runtimeStateLabel(codeSenseState)}>
+              <StatusDot state={codeSenseState} />
+            </span>
+          )}
+        >
+          {externalAgentLsp ? (
+            <div className="popup-subrow">
+              <span className="popup-subrow__name">{externalAgentLsp.label}</span>
+              <Switch
+                checked={externalAgentLsp.enabled ?? false}
+                disabled={childControlsDisabled || !externalAgentLsp.configurable || pending !== null}
+                label={t('toggleExternalAgentLsp')}
+                onChange={(enabled) => onSettingChange(externalAgentLsp.id, enabled)}
+              />
+            </div>
+          ) : null}
+          {localAgentLsp ? (
+            <div className="popup-subrow">
+              <span className="popup-subrow__name">{localAgentLsp.label}</span>
               <Switch
                 checked={localAgentLsp.enabled ?? false}
                 disabled={childControlsDisabled || !localAgentLsp.configurable || pending !== null}
-                label={localAgentLsp.label}
+                label={t('toggleLocalMcp')}
                 onChange={(enabled) => onSettingChange(localAgentLsp.id, enabled)}
               />
-              {canExpand ? (
-                <button
-                  type="button"
-                  className="icon-button popup-dependency-expand"
-                  aria-label={t('serenaDependencyIssue')}
-                  aria-expanded={localAgentLspExpanded}
-                  onClick={() => setLocalAgentLspExpanded((current) => !current)}
-                >
-                  <ChevronIcon direction={localAgentLspExpanded ? 'up' : 'down'} />
-                </button>
-              ) : null}
-            </span>
-          </div>
-          {canExpand && localAgentLspExpanded ? (
+            </div>
+          ) : null}
+          {dependencySetupVisible ? (
             <div className="dependency-setup-panel" role="status">
               <strong className="dependency-setup-title">{t('serenaDependencyIssue')}</strong>
               <p className="dependency-setup-error">{serenaDependency.installCommand ? t('serenaInstallDescription') : t('serenaManualDescription')}</p>
-              {serenaDependency.installCommand ? <CopyableCommand command={serenaDependency.installCommand} /> : null}
+              {serenaDependency.installCommand ? <InstallCommand command={serenaDependency.installCommand} /> : null}
               <div className="dependency-setup-actions">
                 {serenaDependency.installCommand ? (
                   <button type="button" className="primary-button" disabled={pending !== null} onClick={() => onDependencyInstall('serena')}>
@@ -454,7 +489,7 @@ export function ExtensionSettingsControls({
               </div>
             </div>
           ) : null}
-        </section>
+        </Accordion>
       )
     }
 
@@ -468,10 +503,13 @@ export function ExtensionSettingsControls({
     )
 
     if (!onTunnelSetup) {
-      const content = <><span className="popup-setting-name">{tunnel.label}</span>{summary}</>
-      const tunnelAction = tunnel.adminUrl ? () => onOpenUrl(tunnel.adminUrl!) : onTunnelNavigate
+      const content = <span className="popup-setting-name">{tunnel.label}{summary}</span>
+      const tunnelAction = onTunnelNavigate ?? (tunnel.adminUrl ? () => onOpenUrl(tunnel.adminUrl!) : undefined)
       return tunnelAction ? (
-        <button key={section} type="button" className="popup-setting-row" onClick={tunnelAction}>{content}</button>
+        <button key={section} type="button" className="popup-setting-row" onClick={tunnelAction}>
+          {content}
+          <span className="popup-panel-entry__arrow" aria-hidden="true">›</span>
+        </button>
       ) : (
         <div key={section} className="popup-setting-row">{content}</div>
       )
@@ -481,7 +519,7 @@ export function ExtensionSettingsControls({
       <Accordion
         key={section}
         title={tunnel.label}
-        expanded={tunnelExpanded}
+        expanded={expandedSection === 'tunnel'}
         disabled={loading}
         onToggle={toggleTunnel}
         onTitleClick={tunnel.adminUrl ? () => onOpenUrl(tunnel.adminUrl!) : undefined}

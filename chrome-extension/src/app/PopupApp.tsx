@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { BrowserControlPlaneClient } from '../client/BrowserControlPlaneClient'
 import { t } from '../locale'
 import type { CapabilityKey, DependencyName } from '../models/controlPlane'
+import type { BrowserSettingsSection } from '../models/adapters'
 import { useControlPlaneSnapshot } from '../features/useControlPlane'
 
 
@@ -59,10 +60,10 @@ export function PopupApp({ client }: { client: BrowserControlPlaneClient }): Rea
   const coreIssue = snapshot?.settings.find((setting) => setting.id === 'core')?.message
   const visibleIssue = error ?? coreIssue
 
-  const openPanel = async () => {
+  const openPanel = async (section?: BrowserSettingsSection) => {
     try {
-      await client.openSidePanel()
-      window.close()
+      await client.openSidePanel(section)
+      client.closePopup()
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause))
     }
@@ -89,10 +90,12 @@ export function PopupApp({ client }: { client: BrowserControlPlaneClient }): Rea
             pending={pending}
             includeCoreRow={false}
             showInstallGuidance
-            sectionOrder={['capabilities', 'agents', 'local-agent-lsp', 'tunnel']}
+            sectionOrder={['capabilities', 'code-sense', 'tunnel', 'agents']}
             onCapabilityChange={toggleCapability}
             onAgentChange={toggleAgent}
-            onTunnelNavigate={() => { void openPanel() }}
+            agentsMode="navigate"
+            onAgentsNavigate={() => { void openPanel('agents') }}
+            onTunnelNavigate={() => { void openPanel('tunnel') }}
             onSettingChange={toggleSetting}
             onDependencyInstall={installDependency}
             onOpenUrl={openUrl}

@@ -1,5 +1,5 @@
 import type { TunnelSetupValues } from '@beforewave/agent-helm-ui-contract'
-import type { AgentHelmServiceAdapter, BrowserCapabilities } from '../models/adapters'
+import type { AgentHelmServiceAdapter, BrowserCapabilities, BrowserSettingsSection } from '../models/adapters'
 import type { CapabilityKey, DependencyName, PageContext, WorkNotification } from '../models/controlPlane'
 
 export class BrowserControlPlaneClient {
@@ -23,11 +23,13 @@ export class BrowserControlPlaneClient {
 
   getCurrentPageContext() { return this.browser.getCurrentPageContext() }
   subscribePageContext(listener: (context: PageContext) => void) { return this.browser.subscribePageContext(listener) }
-  openSidePanel() { return this.browser.openSidePanel() }
+  openSidePanel(section?: BrowserSettingsSection) { return this.browser.openSidePanel(section) }
+  closePopup() { return this.browser.closePopup() }
   openExternalUrl(url: string) { return this.browser.openExternalUrl(url) }
   downloadFile(url: string, filename: string) { return this.browser.downloadFile(url, filename) }
   openExpandedDetail(workId: string) { return this.browser.openExpandedDetail(workId) }
   openLocalDeepLink(url: string) { return this.browser.openLocalDeepLink(url) }
   notifyWork(notification: WorkNotification) { return this.browser.notifyWork(notification) }
   consumePendingWorkId() { return this.browser.consumePendingWorkId() }
+  consumePendingSettingsSection() { return this.browser.consumePendingSettingsSection() }
 }

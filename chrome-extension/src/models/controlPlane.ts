@@ -75,8 +75,8 @@ export function deriveExtensionConnectionPresentation(
     }
   }
   if (issue.source === 'core') return { state: presentation.state, issue: `${core?.label ?? 'Agent Helm Service'}: ${issue.message ?? issue.state ?? 'error'}` }
-  if (issue.source === 'tunnel') return { state: presentation.state, issue: `${tunnel?.label ?? 'Tunnel'}: ${issue.message ?? issue.state ?? 'error'}` }
-  if (issue.source === 'localMcp') return { state: presentation.state, issue: `${localAgentLsp?.label ?? 'Local Agent LSP'}: ${issue.message ?? issue.state ?? 'error'}` }
+  if (issue.source === 'tunnel') return { state: presentation.state, issue: `${tunnel?.label ?? 'ChatGPT Secure Tunnel'}: ${issue.message ?? issue.state ?? 'error'}` }
+  if (issue.source === 'localMcp') return { state: presentation.state, issue: `${localAgentLsp?.label ?? 'Local Agents'}: ${issue.message ?? issue.state ?? 'error'}` }
   if (issue.source === 'agent') return { state: presentation.state, issue: `${issue.name ?? 'Agent'}: ${issue.message ?? issue.state ?? 'error'}` }
   return { state: presentation.state, issue: issue.message ?? `${issue.name ?? issue.source}: ${issue.state ?? 'error'}` }
 }
