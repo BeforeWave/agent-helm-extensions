@@ -17,17 +17,26 @@ $CanonicalExtensionId = 'eigfmmjccbiinngdfifjkpmofandcgif'
 if ([string]::IsNullOrWhiteSpace($ExtensionId)) { $ExtensionId = $CanonicalExtensionId }
 
 function Fail([string]$Message) { throw "Agent Helm Chrome installer: $Message" }
-function Stage([int]$Number, [string]$Message) { Write-Host "Agent Helm Chrome [$Number/6] $Message" }
+function Stage([int]$Number, [string]$Message) { Write-Host "Agent Helm Chrome [$Number/7] $Message" }
 
-function Confirm-TunnelInstall {
-  if ($env:AGENT_HELM_INSTALL_TUNNEL_CLIENT -eq '1') { return $true }
-  if ($env:AGENT_HELM_INSTALL_TUNNEL_CLIENT -eq '0') { return $false }
-  Write-Host 'OpenAI tunnel-client is required for ChatGPT Tunnel.'
-  Write-Host "Source: $TunnelReleaseUrl"
-  Write-Host 'Windows will use the corresponding Windows installation and verification flow.'
+function Confirm-OptionalInstall([string]$Override, [string]$Title, [string]$Source, [string]$Note = '') {
+  if ($Override -eq '1') { return $true }
+  if ($Override -eq '0') { return $false }
+  Write-Host $Title
+  Write-Host "Source: $Source"
+  if (-not [string]::IsNullOrWhiteSpace($Note)) { Write-Host $Note }
   try { $answer = Read-Host 'Install it now? [y/N]' } catch { return $false }
   return $answer -match '^(?i:y|yes)$'
 }
+
+function Confirm-TunnelInstall {
+  return Confirm-OptionalInstall $env:AGENT_HELM_INSTALL_TUNNEL_CLIENT 'OpenAI tunnel-client is required for ChatGPT Tunnel.' $TunnelReleaseUrl 'Windows will use the corresponding Windows installation and verification flow.'
+}
+
+function Confirm-SerenaInstall {
+  return Confirm-OptionalInstall $env:AGENT_HELM_INSTALL_SERENA 'Serena enables semantic code tools. Agent Helm works without it, but semantic tools stay unavailable.' 'https://github.com/oraios/serena' 'Agent Helm prefers an existing uv installation and uses compatible Python/pip only as a fallback.'
+}
+
 
 $arch = if ($env:PROCESSOR_ARCHITEW6432) { $env:PROCESSOR_ARCHITEW6432 } else { $env:PROCESSOR_ARCHITECTURE }
 if ($arch -notin @('AMD64', 'x64', 'X64')) { Fail "Windows installer currently supports win32-x64 only; detected $arch" }
@@ -74,10 +83,23 @@ if ($ExistingTunnelClientUsable) {
   Write-Host 'Agent Helm Chrome: tunnel-client installation skipped. You can install it later from the Tunnel configuration screen.'
 }
 
-Stage 4 "Native Messaging bridge: $ExtensionId"
+Stage 4 'Serena semantic tools'
+if (Confirm-SerenaInstall) {
+  if (-not (Test-Path -LiteralPath $AgentHelmLauncher)) { Fail "Agent Helm CLI launcher is missing at $AgentHelmLauncher" }
+  & $AgentHelmLauncher setup serena --yes
+  if ($LASTEXITCODE -eq 0) {
+    Write-Host 'Agent Helm Chrome: Serena installed and verified.'
+  } else {
+    Write-Host 'Agent Helm Chrome: Serena installation did not complete. Semantic tools can be set up later.'
+  }
+} else {
+  Write-Host 'Agent Helm Chrome: Serena installation skipped. You can install it later from Agent Helm.'
+}
+
+Stage 5 "Native Messaging bridge: $ExtensionId"
 Write-Host 'Agent Helm bridge registered for the selected Chrome Extension ID.'
 
-Stage 5 "Chrome Extension $Version"
+Stage 6 "Chrome Extension $Version"
 $downloads = Join-Path $HOME 'Downloads'
 $destination = Join-Path $downloads 'Agent-Helm-Chrome-Extension'
 $temp = Join-Path ([System.IO.Path]::GetTempPath()) ("agent-helm-chrome-" + [guid]::NewGuid().ToString('N'))
@@ -91,7 +113,7 @@ try {
   Remove-Item -LiteralPath $temp -Recurse -Force -ErrorAction SilentlyContinue
 }
 
-Stage 6 'Chrome handoff'
+Stage 7 'Chrome handoff'
 Write-Host "Extension files: $destination"
 Write-Host 'Chrome: Developer mode -> Load unpacked -> select that directory.'
 

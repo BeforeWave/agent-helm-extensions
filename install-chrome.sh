@@ -21,29 +21,61 @@ fail() {
 }
 
 stage() {
-  printf '%s\n' "Agent Helm Chrome [$1/6] $2"
+  printf '%s\n' "Agent Helm Chrome [$1/7] $2"
 }
 
 release_tool() {
   curl -fsSL "$RELEASE_TOOL_URL" | /bin/sh -s -- "$@"
 }
 
-confirm_tunnel_install() {
-  if [ "${AGENT_HELM_INSTALL_TUNNEL_CLIENT:-}" = 1 ]; then return 0; fi
+confirm_optional_install() {
+  override=$1
+  title=$2
+  source=$3
+  note=${4:-}
+  case "$override" in
+    1) return 0 ;;
+    0) return 1 ;;
+  esac
   if [ ! -r /dev/tty ] || [ ! -w /dev/tty ]; then return 1; fi
   {
-    printf '%s\n' 'OpenAI tunnel-client is required for ChatGPT Tunnel.'
-    printf '%s\n' "Source: $TUNNEL_RELEASE_URL"
-    if [ "$(uname -s 2>/dev/null || true)" = Darwin ]; then
-      printf '%s\n' 'macOS will also grant the downloaded component the required permission to run.'
-    fi
+    printf '%s\n' "$title"
+    printf '%s\n' "Source: $source"
+    if [ -n "$note" ]; then printf '%s\n' "$note"; fi
     printf '%s' 'Install it now? [y/N] '
   } > /dev/tty
-  IFS= read -r answer < /dev/tty || return 1
+
+  answer=''
+  prompt_interrupted=0
+  trap 'prompt_interrupted=1' INT
+  if IFS= read -r answer < /dev/tty; then :; fi
+  trap - INT
+  if [ "$prompt_interrupted" = 1 ]; then
+    printf '\n' > /dev/tty
+    return 1
+  fi
   case "$answer" in
     y|Y|yes|YES|Yes) return 0 ;;
     *) return 1 ;;
   esac
+}
+
+confirm_tunnel_install() {
+  note=''
+  if [ "$(uname -s 2>/dev/null || true)" = Darwin ]; then
+    note='macOS will also grant the downloaded component the required permission to run.'
+  fi
+  confirm_optional_install "${AGENT_HELM_INSTALL_TUNNEL_CLIENT:-}" \
+    'OpenAI tunnel-client is required for ChatGPT Tunnel.' \
+    "$TUNNEL_RELEASE_URL" \
+    "$note"
+}
+
+confirm_serena_install() {
+  confirm_optional_install "${AGENT_HELM_INSTALL_SERENA:-}" \
+    'Serena enables semantic code tools. Agent Helm works without it, but semantic tools stay unavailable.' \
+    'https://github.com/oraios/serena' \
+    'Agent Helm prefers an existing uv installation and uses compatible Python/pip only as a fallback.'
 }
 
 command -v curl >/dev/null 2>&1 || fail "curl is required."
@@ -76,13 +108,25 @@ else
   printf '%s\n' 'Agent Helm Chrome: tunnel-client installation skipped. You can install it later from the Tunnel configuration screen.'
 fi
 
-stage 4 "Native Messaging bridge: registered for $EXTENSION_ID"
+stage 4 "Serena semantic tools"
+if confirm_serena_install; then
+  [ -x "$CLI_LAUNCHER" ] || fail "Agent Helm CLI launcher is missing at $CLI_LAUNCHER."
+  if "$CLI_LAUNCHER" setup serena --yes; then
+    printf '%s\n' 'Agent Helm Chrome: Serena installed and verified.'
+  else
+    printf '%s\n' 'Agent Helm Chrome: Serena installation did not complete. Semantic tools can be set up later.'
+  fi
+else
+  printf '%s\n' 'Agent Helm Chrome: Serena installation skipped. You can install it later from Agent Helm.'
+fi
+
+stage 5 "Native Messaging bridge: registered for $EXTENSION_ID"
 
 ROOT=$(mktemp -d "${TMPDIR:-/tmp}/agent-helm-chrome.XXXXXX")
 trap 'rm -rf "$ROOT"' EXIT HUP INT TERM
 ZIP=$ROOT/extension.zip
 STAGE=$ROOT/extension
-stage 5 "Chrome Extension $VERSION: download and verify"
+stage 6 "Chrome Extension $VERSION: download and verify"
 release_tool download \
   --release-url "$RELEASE_URL" \
   --version "$VERSION" \
@@ -104,7 +148,7 @@ fi
 trap - EXIT HUP INT TERM
 rm -rf "$ROOT"
 
-stage 6 "Chrome handoff: Extension files are ready at $TARGET"
+stage 7 "Chrome handoff: Extension files are ready at $TARGET"
 printf '%s\n' "Open chrome://extensions, enable Developer mode, choose Load unpacked, and select:"
 printf '%s\n' "$TARGET"
 if [ "$(uname -s 2>/dev/null || true)" = Darwin ]; then
