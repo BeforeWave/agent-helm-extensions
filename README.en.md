@@ -24,7 +24,7 @@
 </sub>
 </p>
 <p align="center">
-  <img width="1000" alt="Agent Helm Chrome Extension Overview" src="https://github.com/user-attachments/assets/0c65c877-91d2-4453-a986-52d1bd13af5a" />
+  <img width="1000" alt="Agent Helm Chrome Extension Overview" src="https://github.com/user-attachments/assets/758fc57f-e84c-4483-9345-9b4ae9470ddf" />
 </p>
 
 ---
@@ -75,6 +75,9 @@ irm https://raw.githubusercontent.com/BeforeWave/agent-helm-extensions/main/inst
 > `& ([scriptblock]::Create((irm https://raw.githubusercontent.com/BeforeWave/agent-helm-extensions/main/install-chrome.ps1))) -Version 0.1.0`
 
 After the script finishes, open `chrome://extensions` in Chrome, enable **Developer mode**, click **Load unpacked**, and select the Extension directory in Downloads.
+<p align="center">
+ <img width="684" alt="Agent Helm Chrome Extension popup" src="https://github.com/user-attachments/assets/e06755a7-7da3-4e05-a85c-6b0f6c911952" />
+</p>
 
 ---
 
@@ -89,7 +92,8 @@ After the script finishes, open `chrome://extensions` in Chrome, enable **Develo
 * **Windows x64:** `Agent-Helm-Installer-<version>-win32-x64.cmd`
 
 <p align="center">
-  <img width="900" alt="Agent Helm install required" src="https://github.com/user-attachments/assets/635dc6ec-429c-4553-ba8e-a9528afeeac3" />
+  <img width="900" alt="Agent Helm install required" src="https://github.com/user-attachments/assets/08b3b526-92ad-4f18-abe6-ec8287c60873" />
+
 </p>
 
 Follow the guidance in the Extension to complete Agent Helm and ChatGPT Tunnel setup.
@@ -147,6 +151,7 @@ The Extension associates the current ChatGPT Conversation with the corresponding
 * **Work History:** Return to previous work after leaving the original Conversation and review what happened during execution.
 
 <p align="center">
+  <img width="900" alt="Agent Helm Work Detail pannel" src="https://github.com/user-attachments/assets/fb409a2c-d4c1-4968-b571-cbcfad9b2809" />
   <img width="900" alt="Agent Helm Work Detail" src="https://github.com/user-attachments/assets/fd371ede-b590-434c-ab4e-34610df3999f" />
 </p>
 
@@ -163,7 +168,7 @@ The **Side Panel** is the main management interface. From the browser, you can d
 * ChatGPT Tunnel status
 
 <p align="center">
-  <img width="420" alt="Agent Helm Side Panel" src="https://github.com/user-attachments/assets/17fa7b87-c106-4449-aa4a-25de518f9d75" />
+  <img width="420" alt="Agent Helm Side Panel" src="https://github.com/user-attachments/assets/47f780f4-c2dd-4bcb-ae07-6f55fc8b58fe" />
 </p>
 
 ---
