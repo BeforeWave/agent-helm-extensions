@@ -24,7 +24,7 @@
   </sub>
 </p>
 <p align="center">
-  <img width="1000" alt="Agent Helm Chrome Extension Overview" src="https://github.com/user-attachments/assets/0c65c877-91d2-4453-a986-52d1bd13af5a" />
+  <img width="1000" alt="Agent Helm Chrome Extension Overview" src="https://github.com/user-attachments/assets/758fc57f-e84c-4483-9345-9b4ae9470ddf" />
 </p>
 
 ---
@@ -42,6 +42,7 @@
 * **多 Agent 协同：** 遇到更繁重或耗时更长的任务时，ChatGPT 可以把已经理解好的项目上下文和任务直接交给本地 Coding Agent 继续执行。
 * **独立网络代理支持：** ChatGPT Tunnel 可以单独配置 HTTP / HTTPS 代理，不需要开启系统全局 VPN。
 
+</p>
 ---
 
 ## ⚡ 快速开始
@@ -75,7 +76,8 @@ irm https://raw.githubusercontent.com/BeforeWave/agent-helm-extensions/main/inst
 > `& ([scriptblock]::Create((irm https://raw.githubusercontent.com/BeforeWave/agent-helm-extensions/main/install-chrome.ps1))) -Version 0.1.0`
 
 脚本完成后，在 Chrome 打开 `chrome://extensions`，开启右上角 **Developer mode（开发者模式）**，点击 **Load unpacked（加载已解压的扩展程序）**，选择 Downloads 中的 Extension 目录即可。
-
+<p align="center">
+  <img width="684" alt="Agent Helm Chrome Extension popup" src="https://github.com/user-attachments/assets/e06755a7-7da3-4e05-a85c-6b0f6c911952" />
 ---
 
 ### 2. 手动安装 Chrome Extension
@@ -89,7 +91,8 @@ irm https://raw.githubusercontent.com/BeforeWave/agent-helm-extensions/main/inst
 * **Windows x64:** `Agent-Helm-Installer-<version>-win32-x64.cmd`
 
 <p align="center">
-  <img width="900" alt="Agent Helm install required" src="https://github.com/user-attachments/assets/635dc6ec-429c-4553-ba8e-a9528afeeac3" />
+  <img width="900" alt="Agent Helm install required" src="https://github.com/user-attachments/assets/08b3b526-92ad-4f18-abe6-ec8287c60873" />
+
 </p>
 
 按照 Extension 中的引导完成 Agent Helm 和 ChatGPT Tunnel 配置即可。
@@ -126,6 +129,7 @@ agent-helm setup chrome
 
 ChatGPT 可以自己完成从理解、修改到验证的完整 Coding 工作，不再依赖你手工搬运项目上下文。
 
+
 ### 2. 必要时调用本地 Coding Agent
 
 任务规模更大或执行时间更长时，ChatGPT 可以直接调用已经接入 Agent Helm 的本地 Coding Agent。
@@ -146,7 +150,11 @@ Extension 会把当前 ChatGPT Conversation 和对应的本地工作关联起来
 * **当前工作感知：** 查看当前项目 / Worktree、ChatGPT 的本地操作和关联的 Agent Session。
 * **Work History：** 离开原来的 Conversation 后，也可以重新找到这项工作，查看当时的执行过程和结果。
 
+
+
 <p align="center">
+  
+  <img width="900" alt="Agent Helm Work Detail pannel" src="https://github.com/user-attachments/assets/fb409a2c-d4c1-4968-b571-cbcfad9b2809" />
   <img width="900" alt="Agent Helm Work Detail" src="https://github.com/user-attachments/assets/fd371ede-b590-434c-ab4e-34610df3999f" />
 </p>
 
@@ -163,7 +171,7 @@ Extension 会把当前 ChatGPT Conversation 和对应的本地工作关联起来
 * ChatGPT Tunnel 状态
 
 <p align="center">
-  <img width="420" alt="Agent Helm Side Panel" src="https://github.com/user-attachments/assets/17fa7b87-c106-4449-aa4a-25de518f9d75" />
+  <img width="420" alt="Agent Helm Side Panel" src="https://github.com/user-attachments/assets/47f780f4-c2dd-4bcb-ae07-6f55fc8b58fe" />
 </p>
 
 ---
