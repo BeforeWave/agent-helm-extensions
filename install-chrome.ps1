@@ -61,16 +61,17 @@ function Remote-Script([string]$Uri) {
 
 $ReleaseTool = Remote-Script $ReleaseToolUrl
 $Version = (& $ReleaseTool resolve -ReleaseUrl $ReleaseUrl -Version $Version | Select-Object -Last 1).Trim()
-$AgentHelmVersion = (& $ReleaseTool field -ReleaseUrl $ReleaseUrl -Version $Version -Field 'agentHelmVersion' | Select-Object -Last 1).Trim()
-Write-Host "Agent Helm Chrome: Extension $Version -> Agent Helm $AgentHelmVersion"
+$AgentHelmProductVersion = (& $ReleaseTool field -ReleaseUrl $ReleaseUrl -Version $Version -Field 'agentHelmVersion' | Select-Object -Last 1).Trim()
+$AgentHelmReleaseVersion = (& $ReleaseTool field -ReleaseUrl $ReleaseUrl -Version $Version -Field 'agentHelmReleaseVersion' | Select-Object -Last 1).Trim()
+Write-Host "Agent Helm Chrome: Release v$Version -> Agent Helm v$AgentHelmReleaseVersion -> $AgentHelmProductVersion"
 
 Stage 1 'Runtime / Node'
 Write-Host 'Agent Helm installer will reuse Node.js 22+ or install its managed win-x64 runtime.'
 
-Stage 2 "Agent Helm $AgentHelmVersion"
+Stage 2 "Agent Helm $AgentHelmProductVersion from Release v$AgentHelmReleaseVersion"
 $AgentHelmInstall = Remote-Script $AgentHelmInstallUrl
-& $AgentHelmInstall -Version $AgentHelmVersion -ChromeExtensionId $ExtensionId
-if ($LASTEXITCODE -ne 0) { Fail "Agent Helm $AgentHelmVersion installation failed" }
+& $AgentHelmInstall -Version $AgentHelmReleaseVersion -ChromeExtensionId $ExtensionId
+if ($LASTEXITCODE -ne 0) { Fail "Agent Helm $AgentHelmProductVersion installation from Release v$AgentHelmReleaseVersion failed" }
 
 Stage 3 'OpenAI tunnel-client'
 if ($ExistingTunnelClientUsable) {

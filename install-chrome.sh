@@ -83,9 +83,11 @@ command -v unzip >/dev/null 2>&1 || fail "unzip is required."
 
 VERSION=$(release_tool resolve --release-url "$RELEASE_URL" --version "$VERSION") \
   || fail "Could not resolve Chrome Extension GitHub Release version."
-AGENT_HELM_VERSION=$(release_tool field --release-url "$RELEASE_URL" --version "$VERSION" --field agentHelmVersion) \
-  || fail "Could not resolve the Agent Helm version pinned by Chrome Extension $VERSION."
-printf '%s\n' "Agent Helm Chrome: Extension $VERSION -> Agent Helm $AGENT_HELM_VERSION"
+AGENT_HELM_PRODUCT_VERSION=$(release_tool field --release-url "$RELEASE_URL" --version "$VERSION" --field agentHelmVersion) \
+  || fail "Could not resolve the Agent Helm product version pinned by Chrome Extension Release v$VERSION."
+AGENT_HELM_RELEASE_VERSION=$(release_tool field --release-url "$RELEASE_URL" --version "$VERSION" --field agentHelmReleaseVersion) \
+  || fail "Could not resolve the Agent Helm release pinned by Chrome Extension Release v$VERSION."
+printf '%s\n' "Agent Helm Chrome: Release v$VERSION -> Extension/Installer artifact ${VERSION%-dev}; Agent Helm v$AGENT_HELM_RELEASE_VERSION -> $AGENT_HELM_PRODUCT_VERSION"
 
 if command -v node >/dev/null 2>&1 && [ "$(node -p 'Number(process.versions.node.split(".")[0])' 2>/dev/null || printf 0)" -ge 22 ]; then
   stage 1 "Runtime / Node: using existing $(node --version 2>/dev/null || printf 'Node.js')"
@@ -93,9 +95,9 @@ else
   stage 1 "Runtime / Node: Agent Helm will install its managed Node runtime"
 fi
 
-stage 2 "Agent Helm $AGENT_HELM_VERSION"
-curl -fsSL "$AGENT_HELM_INSTALL_URL" | AGENT_HELM_CHROME_EXTENSION_ID="$EXTENSION_ID" /bin/sh -s -- "$AGENT_HELM_VERSION" \
-  || fail "Agent Helm $AGENT_HELM_VERSION installation failed."
+stage 2 "Agent Helm $AGENT_HELM_PRODUCT_VERSION from Release v$AGENT_HELM_RELEASE_VERSION"
+curl -fsSL "$AGENT_HELM_INSTALL_URL" | AGENT_HELM_CHROME_EXTENSION_ID="$EXTENSION_ID" /bin/sh -s -- "$AGENT_HELM_RELEASE_VERSION" \
+  || fail "Agent Helm installation from Release v$AGENT_HELM_RELEASE_VERSION failed."
 
 stage 3 "OpenAI tunnel-client"
 if EXISTING_TUNNEL_CLIENT=$(command -v tunnel-client 2>/dev/null) && "$EXISTING_TUNNEL_CLIENT" --version >/dev/null 2>&1; then
