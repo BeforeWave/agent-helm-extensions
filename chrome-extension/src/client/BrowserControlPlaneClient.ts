@@ -1,6 +1,6 @@
 import type { TunnelSetupValues } from '@beforewave/agent-helm-ui-contract'
 import type { AgentHelmServiceAdapter, BrowserCapabilities, BrowserSettingsSection } from '../models/adapters'
-import type { CapabilityKey, DependencyName, PageContext, WorkNotification } from '../models/controlPlane'
+import type { CapabilityKey, DependencyName, PageContext, WorkNotification, WorkTimelineItem } from '../models/controlPlane'
 
 export class BrowserControlPlaneClient {
   constructor(
@@ -9,7 +9,13 @@ export class BrowserControlPlaneClient {
   ) {}
 
   getSnapshot() { return this.service.getSnapshot() }
+  subscribeSnapshot(listener: Parameters<NonNullable<AgentHelmServiceAdapter['subscribeSnapshot']>>[0]) {
+    return this.service.subscribeSnapshot?.(listener) ?? (() => {})
+  }
   getWorkDetail(workId: string) { return this.service.getWorkDetail(workId) }
+  subscribeWorkTimeline(workId: string, afterSequence: number, onUpdates: (updates: WorkTimelineItem[]) => void, onError?: (error: Error) => void) {
+    return this.service.subscribeWorkTimeline?.(workId, afterSequence, onUpdates, onError) ?? (() => {})
+  }
   getWorkHistoryPage(cursor?: string) { return this.service.getWorkHistoryPage(cursor) }
   findWorkByConversation(pageContext: PageContext) { return this.service.findWorkByConversation(pageContext) }
   addWorkspace() { return this.service.addWorkspace() }

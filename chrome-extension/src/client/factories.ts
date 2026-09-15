@@ -1,3 +1,4 @@
+import { BackgroundAgentHelmService } from '../adapters/chrome/BackgroundAgentHelmService'
 import { ChromeBrowserCapabilities } from '../adapters/chrome/ChromeBrowserCapabilities'
 import { NativeAgentHelmService } from '../adapters/chrome/NativeAgentHelmService'
 import { NativeMessagingTransport } from '../adapters/chrome/NativeMessagingTransport'
@@ -5,10 +6,17 @@ import { MockAgentHelmService } from '../adapters/mock/MockAgentHelmService'
 import { MockBrowserCapabilities, type MockBrowserCapabilitiesOptions } from '../adapters/mock/MockBrowserCapabilities'
 import { BrowserControlPlaneClient } from './BrowserControlPlaneClient'
 
+function nativeHostName(): string {
+  return import.meta.env.WXT_AGENT_HELM_NATIVE_HOST_NAME ?? 'com.beforewave.agent_helm'
+}
+
+export function createChromeBackgroundService(): NativeAgentHelmService {
+  return new NativeAgentHelmService(new NativeMessagingTransport(nativeHostName()))
+}
+
 export function createChromeControlPlaneClient(): BrowserControlPlaneClient {
-  const hostName = import.meta.env.WXT_AGENT_HELM_NATIVE_HOST_NAME ?? 'com.beforewave.agent_helm'
   return new BrowserControlPlaneClient(
-    new NativeAgentHelmService(new NativeMessagingTransport(hostName)),
+    new BackgroundAgentHelmService(),
     new ChromeBrowserCapabilities(),
   )
 }

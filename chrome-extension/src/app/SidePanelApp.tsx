@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { createWorkHistoryListModel } from '../models/workHistory'
+import { createWorkHistoryListModel, mergeWorkHistoryTimeline } from '../models/workHistory'
 import type { BrowserControlPlaneClient } from '../client/BrowserControlPlaneClient'
 import { WorkDetail } from '../components/WorkDetail'
 import { WorkHistoryList } from '../components/WorkHistoryList'
@@ -80,6 +80,7 @@ export function SidePanelApp({ client }: { client: BrowserControlPlaneClient }) 
   const [workspaceFilter, setWorkspaceFilter] = useState('all')
   const [selectedWorkId, setSelectedWorkId] = useState<string | null>(null)
   const [detail, setDetail] = useState<WorkHistoryDetail | null>(null)
+  const [detailError, setDetailError] = useState<string | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
   const [pendingControl, setPendingControl] = useState<string | null>(null)
   const [loadingMoreWork, setLoadingMoreWork] = useState(false)
@@ -120,22 +121,39 @@ export function SidePanelApp({ client }: { client: BrowserControlPlaneClient }) 
   useEffect(() => {
     if (!selectedWorkId) {
       setDetail(null)
+      setDetailError(null)
       return
     }
     let cancelled = false
+    let unsubscribe: (() => void) | undefined
+    setDetail(null)
+    setDetailError(null)
     setDetailLoading(true)
     void client.getWorkDetail(selectedWorkId).then((value) => {
-      if (!cancelled) {
-        setDetail(value)
-        setError(null)
-      }
+      if (cancelled) return
+      setDetail(value)
+      setDetailError(null)
+      const afterSequence = value.timeline.reduce((cursor, item) => Math.max(cursor, item.sequence), 0)
+      unsubscribe = client.subscribeWorkTimeline(selectedWorkId, afterSequence, (updates) => {
+        if (cancelled) return
+        setDetail((current) => {
+          const base = current?.id === selectedWorkId ? current : value
+          return { ...base, timeline: mergeWorkHistoryTimeline(base.timeline, updates), timelineError: undefined }
+        })
+      }, (cause) => {
+        if (cancelled) return
+        setDetail((current) => current?.id === selectedWorkId ? { ...current, timelineError: cause.message } : current)
+      })
     }).catch((cause) => {
-      if (!cancelled) setError(cause instanceof Error ? cause.message : String(cause))
+      if (!cancelled) setDetailError(cause instanceof Error ? cause.message : String(cause))
     }).finally(() => {
       if (!cancelled) setDetailLoading(false)
     })
-    return () => { cancelled = true }
-  }, [client, selectedWorkId, setError])
+    return () => {
+      cancelled = true
+      unsubscribe?.()
+    }
+  }, [client, selectedWorkId])
 
   const selectWork = (workId: string) => {
     rememberedScrollTop.current = listScrollRef.current?.scrollTop ?? 0
@@ -178,7 +196,6 @@ export function SidePanelApp({ client }: { client: BrowserControlPlaneClient }) 
     try {
       setSnapshot(await operation())
       setError(null)
-      void chrome.runtime.sendMessage({ type: 'agent-helm:refresh-action-status' }).catch(() => {})
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause))
     } finally {
@@ -192,7 +209,6 @@ export function SidePanelApp({ client }: { client: BrowserControlPlaneClient }) 
       const next = await client.configureTunnel(input)
       setSnapshot(next)
       setError(null)
-      void chrome.runtime.sendMessage({ type: 'agent-helm:refresh-action-status' }).catch(() => {})
       return next
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause))
@@ -209,7 +225,7 @@ export function SidePanelApp({ client }: { client: BrowserControlPlaneClient }) 
       return <main className="sidepanel-shell sidepanel-shell--detail"><div className="empty-state full-height">{t('extensionLoadingWorkDetail')}</div></main>
     }
     if (!detail) {
-      return <main className="sidepanel-shell sidepanel-shell--detail"><div className="empty-state full-height">{t('extensionWorkDetailUnavailable')}</div></main>
+      return <main className="sidepanel-shell sidepanel-shell--detail"><div className="empty-state full-height">{detailError || t('extensionWorkDetailUnavailable')}</div></main>
     }
     return (
       <main className="sidepanel-shell sidepanel-shell--detail">
@@ -224,7 +240,6 @@ export function SidePanelApp({ client }: { client: BrowserControlPlaneClient }) 
           onDetailChange={setDetail}
           onConversationBound={() => {
             currentConversation.refresh()
-            void client.getSnapshot().then(setSnapshot).catch(() => {})
           }}
           onViewConversationWork={selectWork}
         />

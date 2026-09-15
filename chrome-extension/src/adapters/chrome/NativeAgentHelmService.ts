@@ -5,7 +5,7 @@ import type { AgentHelmServiceAdapter } from '../../models/adapters'
 import type { CapabilityKey, ControlPlaneSnapshot, DependencyName, PageContext, WorkHistoryDetail } from '../../models/controlPlane'
 import { NativeMessagingTransport } from './NativeMessagingTransport'
 
-import type { DependencyProjection, RuntimeState, WorkHistoryPage, WorkHistorySummary, WorkTimelineItem, WorkspaceProjection } from '../../models/controlPlane'
+import type { DependencyProjection, RuntimeState, WorkHistoryPage, WorkHistorySummary, WorkTimelineItem, WorkTimelineUpdateBatch, WorkspaceProjection } from '../../models/controlPlane'
 
 import type { NativeDaemonProbe } from './NativeMessagingTransport'
 
@@ -78,6 +78,7 @@ function projectTimeline(value: unknown): WorkTimelineItem | undefined {
   const actor = item.actor === 'subagent' ? 'subagent' : 'chatgpt'
   return {
     id,
+    sequence: numberValue(item.sequence),
     timestamp,
     actor,
     ...(stringValue(item.actorName) ? { actorName: stringValue(item.actorName)! } : {}),
@@ -341,25 +342,60 @@ export class NativeAgentHelmService implements AgentHelmServiceAdapter {
     return session ? projectWorkSummary(session) ?? null : null
   }
 
+  async getWorkTimelineUpdates(workId: string, afterSequence: number): Promise<WorkTimelineUpdateBatch> {
+    const value = record(await this.transport.request<unknown>('getChatSessionTimelineUpdates', [workId, afterSequence]))
+    const cursorSequence = numberValue(value.cursorSequence)
+    const rawUpdates = Array.isArray(value.updates) ? value.updates : []
+    return {
+      cursorSequence,
+      updates: rawUpdates.map(projectTimeline).filter((item): item is WorkTimelineItem => Boolean(item)),
+    }
+  }
+
+  async releaseWorkTimeline(workId: string): Promise<void> {
+    await this.transport.request('releaseChatSessionTimelineTail', [workId])
+  }
+
   async getWorkDetail(workId: string): Promise<WorkHistoryDetail> {
-    const [summaryValue, timelineValue] = await Promise.all([
-      this.transport.request<unknown>('getChatSessionSummary', [workId]),
-      this.transport.request<unknown[]>('getChatSessionTimeline', [workId]),
-    ])
+    const summaryValue = await this.transport.request<unknown>('getChatSessionSummary', [workId])
     const session = normalizeWorkHistorySession(summaryValue)
     if (!session) throw new Error(`Unknown Work History record: ${workId}`)
     const projected = projectWorkSummary(session)!
     const detail = createWorkHistorySessionDetailModel(session)
-    const timeline = Array.isArray(timelineValue)
-      ? timelineValue.map(projectTimeline).filter((item): item is WorkTimelineItem => Boolean(item))
-      : []
+
+    let timeline: WorkTimelineItem[] = []
+    let timelineError: string | undefined
+    try {
+      const timelineValue = await this.transport.request<unknown[]>('getChatSessionTimeline', [workId])
+      timeline = Array.isArray(timelineValue)
+        ? timelineValue.map(projectTimeline).filter((item): item is WorkTimelineItem => Boolean(item))
+        : []
+    } catch (cause) {
+      timelineError = cause instanceof Error ? cause.message : String(cause)
+    }
+
+    let latestSubagentName: string | undefined
+    for (let index = timeline.length - 1; index >= 0; index -= 1) {
+      const item = timeline[index]
+      if (item.actor === 'subagent' && item.actorName) {
+        latestSubagentName = item.actorName
+        break
+      }
+    }
+    const hasNativeRuntime = timeline.some((item) => item.actor === 'subagent') || projected.delegationCount > 0
+    const agentLabel = session.agentLabel ?? latestSubagentName ?? (timelineError ? undefined : 'ChatGPT')
+    const runtimeLabel = session.runtimeLabel ?? (timelineError && !hasNativeRuntime ? undefined : hasNativeRuntime ? 'Native session' : 'Direct work')
+
     return {
       ...projected,
+      ...(agentLabel ? { agentLabel } : {}),
+      ...(runtimeLabel ? { runtimeLabel } : {}),
       createdAt: detail.createdAt || projected.lastActivityAt,
       ...(detail.originIntent ? { originIntent: detail.originIntent } : {}),
       boundIntents: detail.boundIntents,
       chatUrls: detail.chatUrls,
       timeline,
+      ...(timelineError ? { timelineError } : {}),
     }
   }
 

@@ -27,10 +27,8 @@ export function PopupApp({ client }: { client: BrowserControlPlaneClient }): Rea
     try {
       setSnapshot(await operation())
       setError(null)
-      void chrome.runtime.sendMessage({ type: 'agent-helm:refresh-action-status' }).catch(() => {})
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause))
-      void chrome.runtime.sendMessage({ type: 'agent-helm:refresh-action-status' }).catch(() => {})
     } finally {
       setPending(null)
     }

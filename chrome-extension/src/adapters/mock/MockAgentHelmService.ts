@@ -8,6 +8,8 @@ import type {
   PageContext,
   WorkHistoryDetail,
   WorkHistorySummary,
+  WorkTimelineItem,
+  WorkTimelineUpdateBatch,
 } from '../../models/controlPlane'
 import { normalizeChatGPTConversationUrl } from '../../services/pageContext'
 
@@ -70,6 +72,7 @@ function makeDetail(summary: WorkHistorySummary, originUrl: string, task: string
     timeline: [
       {
         id: `${summary.id}:inspect`,
+        sequence: 1,
         timestamp: '2026-08-28T09:05:00.000Z',
         actor: 'chatgpt',
         actorName: 'ChatGPT',
@@ -81,6 +84,7 @@ function makeDetail(summary: WorkHistorySummary, originUrl: string, task: string
       },
       {
         id: `${summary.id}:activity`,
+        sequence: 2,
         timestamp: summary.lastActivityAt,
         actor: summary.delegationCount ? 'subagent' : 'chatgpt',
         actorName: summary.delegationCount ? 'DSH' : 'ChatGPT',
@@ -166,6 +170,25 @@ export class MockAgentHelmService implements AgentHelmServiceAdapter {
     const detail = this.details.get(workId)
     if (!detail) throw new Error(`Unknown Work History record: ${workId}`)
     return clone(detail)
+  }
+
+  async getWorkTimelineUpdates(workId: string, afterSequence: number): Promise<WorkTimelineUpdateBatch> {
+    const detail = this.details.get(workId)
+    if (!detail) throw new Error(`Unknown Work History record: ${workId}`)
+    const cursorSequence = detail.timeline.reduce((cursor, item) => Math.max(cursor, item.sequence), 0)
+    return { cursorSequence, updates: clone(detail.timeline.filter((item) => item.sequence > afterSequence)) }
+  }
+
+  async releaseWorkTimeline(_workId: string): Promise<void> {}
+
+  subscribeWorkTimeline(workId: string, afterSequence: number, onUpdates: (updates: WorkTimelineItem[]) => void, onError?: (error: Error) => void): () => void {
+    let active = true
+    void this.getWorkTimelineUpdates(workId, afterSequence).then((batch) => {
+      if (active && batch.updates.length) onUpdates(batch.updates)
+    }).catch((cause) => {
+      if (active) onError?.(cause instanceof Error ? cause : new Error(String(cause)))
+    })
+    return () => { active = false }
   }
 
   async addWorkspace(): Promise<ControlPlaneSnapshot | null> {

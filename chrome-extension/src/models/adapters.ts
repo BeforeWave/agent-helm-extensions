@@ -8,11 +8,22 @@ import type {
   WorkHistoryPage,
   WorkHistorySummary,
   WorkNotification,
+  WorkTimelineItem,
+  WorkTimelineUpdateBatch,
 } from './controlPlane'
 
+export interface ControlPlaneStateUpdate {
+  snapshot: ControlPlaneSnapshot | null
+  error: string | null
+}
+
 export interface AgentHelmServiceAdapter {
+  subscribeSnapshot?(listener: (update: ControlPlaneStateUpdate) => void): () => void
   getSnapshot(): Promise<ControlPlaneSnapshot>
   getWorkDetail(workId: string): Promise<WorkHistoryDetail>
+  getWorkTimelineUpdates?(workId: string, afterSequence: number): Promise<WorkTimelineUpdateBatch>
+  releaseWorkTimeline?(workId: string): Promise<void>
+  subscribeWorkTimeline?(workId: string, afterSequence: number, onUpdates: (updates: WorkTimelineItem[]) => void, onError?: (error: Error) => void): () => void
   getWorkHistoryPage(cursor?: string): Promise<WorkHistoryPage>
   findWorkByConversation(pageContext: PageContext): Promise<WorkHistorySummary | null>
   addWorkspace(): Promise<ControlPlaneSnapshot | null>

@@ -15,7 +15,11 @@ import {
   shouldCompactHelmCapabilitySummary,
 } from '../models/presentation'
 
-const fixedAgentHelmInstallerSource = agentHelmInstallerSourceForRelease(extensionManifest.version)
+const browserManifest = typeof chrome !== 'undefined' && chrome.runtime?.getManifest ? chrome.runtime.getManifest() : undefined
+const extensionReleaseVersion = typeof browserManifest?.version_name === 'string' && browserManifest.version_name.trim()
+  ? browserManifest.version_name.trim()
+  : extensionManifest.version
+const fixedAgentHelmInstallerSource = agentHelmInstallerSourceForRelease(extensionReleaseVersion)
 
 const CAPABILITIES = helmCapabilityDefinitions.map((definition) => ({
   ...definition,
@@ -199,11 +203,9 @@ export function InstallAgentHelmGuidance({
     ? installer.assetName
     : currentExtensionId ? agentHelmMacosInstallerFilename(installer.version, currentExtensionId) : installer.assetName
   const installChromeCommand = windows
-    ? `& ([scriptblock]::Create((irm https://raw.githubusercontent.com/BeforeWave/agent-helm-extensions/main/install-chrome.ps1))) -Version ${extensionManifest.version} -ExtensionId ${extensionId}`
-    : `curl -fsSL https://raw.githubusercontent.com/BeforeWave/agent-helm-extensions/main/install-chrome.sh | AGENT_HELM_CHROME_EXTENSION_ID=${extensionId} sh -s -- ${extensionManifest.version}`
-  const repairCommand = windows
-    ? `& ([scriptblock]::Create((irm https://raw.githubusercontent.com/BeforeWave/agent-helm/main/install.ps1))) -Version ${extensionManifest.agentHelm.version} -ChromeExtensionId ${extensionId}`
-    : `curl -fsSL https://raw.githubusercontent.com/BeforeWave/agent-helm/main/install.sh | AGENT_HELM_CHROME_EXTENSION_ID=${extensionId} sh -s -- ${extensionManifest.agentHelm.version}`
+    ? `& ([scriptblock]::Create((irm https://raw.githubusercontent.com/BeforeWave/agent-helm-extensions/main/install-chrome.ps1))) -Version ${extensionReleaseVersion} -ExtensionId ${extensionId}`
+    : `curl -fsSL https://raw.githubusercontent.com/BeforeWave/agent-helm-extensions/main/install-chrome.sh | AGENT_HELM_CHROME_EXTENSION_ID=${extensionId} sh -s -- ${extensionReleaseVersion}`
+  const repairCommand = installChromeCommand
   const downloadedInstallerPath = windows ? `%USERPROFILE%\\Downloads\\${installerFilename}` : `$HOME/Downloads/${installerFilename}`
   const gatekeeperCommand = `xattr -dr com.apple.quarantine "${downloadedInstallerPath}"\nopen "${downloadedInstallerPath}"`
   return (
@@ -448,8 +450,8 @@ export function ExtensionSettingsControls({
             <div className="popup-subrow">
               <span className="popup-subrow__name">{externalAgentLsp.label}</span>
               <Switch
-                checked={externalAgentLsp.enabled ?? false}
-                disabled={childControlsDisabled || !externalAgentLsp.configurable || pending !== null}
+                checked={!serenaUnavailable && (externalAgentLsp.enabled ?? false)}
+                disabled={serenaUnavailable || childControlsDisabled || !externalAgentLsp.configurable || pending !== null}
                 label={t('toggleExternalAgentLsp')}
                 onChange={(enabled) => onSettingChange(externalAgentLsp.id, enabled)}
               />
@@ -459,8 +461,8 @@ export function ExtensionSettingsControls({
             <div className="popup-subrow">
               <span className="popup-subrow__name">{localAgentLsp.label}</span>
               <Switch
-                checked={localAgentLsp.enabled ?? false}
-                disabled={childControlsDisabled || !localAgentLsp.configurable || pending !== null}
+                checked={!serenaUnavailable && (localAgentLsp.enabled ?? false)}
+                disabled={serenaUnavailable || childControlsDisabled || !localAgentLsp.configurable || pending !== null}
                 label={t('toggleLocalMcp')}
                 onChange={(enabled) => onSettingChange(localAgentLsp.id, enabled)}
               />

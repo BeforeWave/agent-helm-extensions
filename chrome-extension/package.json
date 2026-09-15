@@ -1,7 +1,7 @@
 {
   "name": "agent-helm-chrome-extension",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "scripts": {
     "dev:web": "vite --config vite.preview.config.ts",
@@ -16,7 +16,7 @@
   "dependencies": {
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "@beforewave/agent-helm-ui-contract": "0.1.4"
+    "@beforewave/agent-helm-ui-contract": "0.1.5"
   },
   "devDependencies": {
     "@types/chrome": "latest",
@@ -34,6 +34,6 @@
     "node": ">=22"
   },
   "agentHelm": {
-    "version": "0.1.4"
+    "version": "0.1.5"
   }
 }

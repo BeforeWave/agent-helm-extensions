@@ -4,6 +4,7 @@ import type { PageContext, WorkNotification } from '../../models/controlPlane'
 import { isSupportedLocalDeepLink } from '../../services/deepLink'
 import { notificationIdForWork } from '../../services/notifications'
 import { pageContextFromTab } from '../../services/pageContext'
+import { OPEN_SIDE_PANEL_MESSAGE } from './BackgroundAgentHelmService'
 
 export class ChromeBrowserCapabilities implements BrowserCapabilities {
   async getCurrentPageContext(): Promise<PageContext> {
@@ -32,9 +33,13 @@ export class ChromeBrowserCapabilities implements BrowserCapabilities {
 
   async openSidePanel(section?: BrowserSettingsSection): Promise<void> {
     if (section) await chrome.storage.session.set({ agentHelmPendingSettingsSection: section })
-    const current = await chrome.windows.getCurrent()
-    if (typeof current.id !== 'number') throw new Error('No active browser window')
-    await chrome.sidePanel.open({ windowId: current.id })
+    const response = await chrome.runtime.sendMessage({ type: OPEN_SIDE_PANEL_MESSAGE }) as {
+      ok?: boolean
+      openOptions?: chrome.sidePanel.OpenOptions
+      error?: string
+    } | undefined
+    if (!response?.ok || !response.openOptions) throw new Error(response?.error || 'Unable to open Agent Helm side panel')
+    await chrome.sidePanel.open(response.openOptions)
   }
 
   closePopup(): void {

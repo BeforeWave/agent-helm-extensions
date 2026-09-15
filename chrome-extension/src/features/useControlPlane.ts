@@ -20,11 +20,11 @@ export function useControlPlaneSnapshot(client: BrowserControlPlaneClient) {
 
   useEffect(() => { void refresh() }, [refresh])
 
-  useEffect(() => {
-    if (snapshot?.connection.state !== 'install-required') return
-    const timer = window.setInterval(() => { void refresh() }, 1500)
-    return () => window.clearInterval(timer)
-  }, [refresh, snapshot?.connection.state])
+  useEffect(() => client.subscribeSnapshot(({ snapshot: nextSnapshot, error: nextError }) => {
+    if (nextSnapshot) setSnapshot(nextSnapshot)
+    setError(nextError)
+    setLoading(false)
+  }), [client])
 
   return { snapshot, setSnapshot, error, setError, loading, refresh }
 }

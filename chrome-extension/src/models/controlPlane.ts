@@ -147,10 +147,16 @@ export interface WorkBoundConversationIntent {
 
 export interface WorkTimelineItem {
   id: string
+  sequence: number
   timestamp: string
   actor: 'chatgpt' | 'subagent'
   actorName?: string
   presentation: WorkHistoryTimelinePresentation
+}
+
+export interface WorkTimelineUpdateBatch {
+  cursorSequence: number
+  updates: WorkTimelineItem[]
 }
 
 export interface WorkHistoryPage {
@@ -164,6 +170,7 @@ export interface WorkHistoryDetail extends WorkHistorySummary {
   boundIntents: WorkBoundConversationIntent[]
   chatUrls: string[]
   timeline: WorkTimelineItem[]
+  timelineError?: string
   localDeepLink?: string | null
 }
 

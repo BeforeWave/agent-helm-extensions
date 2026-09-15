@@ -170,7 +170,7 @@ export function WorkDetail({
           <div>
             <dt>{t('extensionAgentRuntime')}</dt>
             <dd className="detail-fact-with-action">
-              <span>{[detail.agentLabel, detail.runtimeLabel].filter(Boolean).join(' · ') || t('stateUnavailable')}</span>
+              <span>{[detail.agentLabel, detail.runtimeLabel].filter(Boolean).join(' · ') || detail.timelineError || t('stateUnavailable')}</span>
               {detail.localDeepLink ? <button type="button" className="secondary-button compact-action button-with-icon" onClick={() => void client.openLocalDeepLink(detail.localDeepLink!)}>{t('extensionOpenLocalApp')} <ExternalIcon /></button> : null}
             </dd>
           </div>
@@ -200,8 +200,8 @@ export function WorkDetail({
           <span className="detail-section__chevron" aria-hidden="true">{contextExpanded ? '▾' : '▸'}</span>
         </button>
         {contextExpanded ? <>
-          {detail.boundIntents.map((entry, index) => <ContextCard key={`${entry.boundAt}:${index}`} intent={entry.intent} boundAt={entry.boundAt} role={`${t('sessionBoundChats')} ${detail.boundIntents.length - index}`} />)}
           {detail.originIntent ? <ContextCard intent={detail.originIntent} role={t('sessionOriginChat')} /> : detail.boundIntents.length ? null : <div className="empty-state">{t('sessionUnboundContext')}</div>}
+          {detail.boundIntents.map((entry, index) => <ContextCard key={`${entry.boundAt}:${index}`} intent={entry.intent} boundAt={entry.boundAt} role={`${t('sessionBoundChats')} ${detail.boundIntents.length - index}`} />)}
         </> : null}
       </section>
 
@@ -211,6 +211,7 @@ export function WorkDetail({
           <button type="button" className="timeline-filter" data-active={activityFilter === 'chatgpt'} onClick={() => setActivityFilter('chatgpt')}>{t('sessionChatGPT')}</button>
           <button type="button" className="timeline-filter" data-active={activityFilter === 'subagent'} onClick={() => setActivityFilter('subagent')}>{t('sessionSubagent')}</button>
         </nav>
+        {detail.timelineError ? <div className="error-banner">{detail.timelineError}</div> : null}
         <div className="timeline">
           {visibleTimeline.length ? visibleTimeline.map((item) => (
             <article className="timeline-item" key={item.id}>
