@@ -13,6 +13,7 @@ $TunnelReleaseUrl = 'https://github.com/openai/tunnel-client/releases'
 $ReleaseToolUrl = if ($env:BEFOREWAVE_RELEASE_TOOL_URL) { $env:BEFOREWAVE_RELEASE_TOOL_URL } else { 'https://raw.githubusercontent.com/BeforeWave/agent-helm/main/install-release.ps1' }
 $AgentHelmInstallUrl = if ($env:AGENT_HELM_INSTALL_URL) { $env:AGENT_HELM_INSTALL_URL } else { 'https://raw.githubusercontent.com/BeforeWave/agent-helm/main/install.ps1' }
 $AgentHelmLauncher = Join-Path $HOME '.agent-helm\bin\agent-helm.cmd'
+$ManagedBin = Join-Path $HOME '.agent-helm\bin'
 $CanonicalExtensionId = 'eigfmmjccbiinngdfifjkpmofandcgif'
 if ([string]::IsNullOrWhiteSpace($ExtensionId)) { $ExtensionId = $CanonicalExtensionId }
 
@@ -42,15 +43,47 @@ $arch = if ($env:PROCESSOR_ARCHITEW6432) { $env:PROCESSOR_ARCHITEW6432 } else { 
 if ($arch -notin @('AMD64', 'x64', 'X64')) { Fail "Windows installer currently supports win32-x64 only; detected $arch" }
 if ($ExtensionId -notmatch '^[a-p]{32}$') { Fail 'Chrome extension id must be a 32-character extension id' }
 
-$ExistingTunnelClient = Get-Command tunnel-client.exe -ErrorAction SilentlyContinue | Select-Object -First 1
-$ExistingTunnelClientUsable = $false
-if ($ExistingTunnelClient) {
+function Test-DependencyExecutable([string]$Path, [string]$Probe) {
+  if ([string]::IsNullOrWhiteSpace($Path) -or -not (Test-Path -LiteralPath $Path)) { return $false }
   try {
-    & $ExistingTunnelClient.Source --version *> $null
-    $ExistingTunnelClientUsable = ($LASTEXITCODE -eq 0)
+    & $Path $Probe *> $null
+    return ($LASTEXITCODE -eq 0)
   } catch {
-    $ExistingTunnelClientUsable = $false
+    return $false
   }
+}
+
+function Find-TunnelClient {
+  $command = Get-Command tunnel-client.exe -ErrorAction SilentlyContinue | Select-Object -First 1
+  if ($command -and (Test-DependencyExecutable $command.Source '--version')) { return $command.Source }
+  $managed = Join-Path $ManagedBin 'tunnel-client.exe'
+  if (Test-DependencyExecutable $managed '--version') { return $managed }
+  return $null
+}
+
+function Find-Serena {
+  foreach ($name in @('serena.exe', 'serena.cmd')) {
+    $command = Get-Command $name -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($command -and (Test-DependencyExecutable $command.Source '--help')) { return $command.Source }
+  }
+  $candidates = @(
+    (Join-Path $ManagedBin 'serena.cmd'),
+    (Join-Path $HOME '.local\bin\serena.exe')
+  )
+  if ($env:UV_TOOL_BIN_DIR) { $candidates += (Join-Path $env:UV_TOOL_BIN_DIR 'serena.exe') }
+  if ($env:XDG_BIN_HOME) { $candidates += (Join-Path $env:XDG_BIN_HOME 'serena.exe') }
+  if ($env:APPDATA) {
+    $pythonRoot = Join-Path $env:APPDATA 'Python'
+    if (Test-Path -LiteralPath $pythonRoot) {
+      Get-ChildItem -LiteralPath $pythonRoot -Directory -ErrorAction SilentlyContinue | ForEach-Object {
+        $candidates += (Join-Path $_.FullName 'Scripts\serena.exe')
+      }
+    }
+  }
+  foreach ($candidate in $candidates) {
+    if (Test-DependencyExecutable $candidate '--help') { return $candidate }
+  }
+  return $null
 }
 
 function Remote-Script([string]$Uri) {
@@ -65,42 +98,7 @@ $AgentHelmProductVersion = (& $ReleaseTool field -ReleaseUrl $ReleaseUrl -Versio
 $AgentHelmReleaseVersion = (& $ReleaseTool field -ReleaseUrl $ReleaseUrl -Version $Version -Field 'agentHelmReleaseVersion' | Select-Object -Last 1).Trim()
 Write-Host "Agent Helm Chrome: Release v$Version -> Agent Helm v$AgentHelmReleaseVersion -> $AgentHelmProductVersion"
 
-Stage 1 'Runtime / Node'
-Write-Host 'Agent Helm installer will reuse Node.js 22+ or install its managed win-x64 runtime.'
-
-Stage 2 "Agent Helm $AgentHelmProductVersion from Release v$AgentHelmReleaseVersion"
-$AgentHelmInstall = Remote-Script $AgentHelmInstallUrl
-& $AgentHelmInstall -Version $AgentHelmReleaseVersion -ChromeExtensionId $ExtensionId
-if ($LASTEXITCODE -ne 0) { Fail "Agent Helm $AgentHelmProductVersion installation from Release v$AgentHelmReleaseVersion failed" }
-
-Stage 3 'OpenAI tunnel-client'
-if ($ExistingTunnelClientUsable) {
-  Write-Host "Agent Helm Chrome: using existing tunnel-client from $($ExistingTunnelClient.Source)."
-} elseif (Confirm-TunnelInstall) {
-  if (-not (Test-Path -LiteralPath $AgentHelmLauncher)) { Fail "Agent Helm CLI launcher is missing at $AgentHelmLauncher" }
-  & $AgentHelmLauncher setup tunnel-client --channel chrome --yes
-  if ($LASTEXITCODE -ne 0) { Fail 'OpenAI tunnel-client installation failed' }
-} else {
-  Write-Host 'Agent Helm Chrome: tunnel-client installation skipped. You can install it later from the Tunnel configuration screen.'
-}
-
-Stage 4 'Serena semantic tools'
-if (Confirm-SerenaInstall) {
-  if (-not (Test-Path -LiteralPath $AgentHelmLauncher)) { Fail "Agent Helm CLI launcher is missing at $AgentHelmLauncher" }
-  & $AgentHelmLauncher setup serena --yes
-  if ($LASTEXITCODE -eq 0) {
-    Write-Host 'Agent Helm Chrome: Serena installed and verified.'
-  } else {
-    Write-Host 'Agent Helm Chrome: Serena installation did not complete. Semantic tools can be set up later.'
-  }
-} else {
-  Write-Host 'Agent Helm Chrome: Serena installation skipped. You can install it later from Agent Helm.'
-}
-
-Stage 5 "Native Messaging bridge: $ExtensionId"
-Write-Host 'Agent Helm bridge registered for the selected Chrome Extension ID.'
-
-Stage 6 "Chrome Extension $Version"
+Stage 1 "Chrome Extension ${Version}: download and verify"
 $downloads = Join-Path $HOME 'Downloads'
 $destination = Join-Path $downloads 'Agent-Helm-Chrome-Extension'
 $temp = Join-Path ([System.IO.Path]::GetTempPath()) ("agent-helm-chrome-" + [guid]::NewGuid().ToString('N'))
@@ -113,6 +111,45 @@ try {
 } finally {
   Remove-Item -LiteralPath $temp -Recurse -Force -ErrorAction SilentlyContinue
 }
+
+Stage 2 'Runtime / Node'
+Write-Host 'Agent Helm installer will reuse Node.js 22+ or install its managed win-x64 runtime.'
+
+Stage 3 "Agent Helm $AgentHelmProductVersion from Release v$AgentHelmReleaseVersion"
+$AgentHelmInstall = Remote-Script $AgentHelmInstallUrl
+& $AgentHelmInstall -Version $AgentHelmReleaseVersion -ChromeExtensionId $ExtensionId
+if ($LASTEXITCODE -ne 0) { Fail "Agent Helm $AgentHelmProductVersion installation from Release v$AgentHelmReleaseVersion failed" }
+
+Stage 4 'OpenAI tunnel-client'
+$ExistingTunnelClient = Find-TunnelClient
+if ($ExistingTunnelClient) {
+  Write-Host "Agent Helm Chrome: using existing tunnel-client from $ExistingTunnelClient."
+} elseif (Confirm-TunnelInstall) {
+  if (-not (Test-Path -LiteralPath $AgentHelmLauncher)) { Fail "Agent Helm CLI launcher is missing at $AgentHelmLauncher" }
+  & $AgentHelmLauncher setup tunnel-client --channel chrome --yes
+  if ($LASTEXITCODE -ne 0) { Fail 'OpenAI tunnel-client installation failed' }
+} else {
+  Write-Host 'Agent Helm Chrome: tunnel-client installation skipped. You can install it later from the Tunnel configuration screen.'
+}
+
+Stage 5 'Serena semantic tools'
+$ExistingSerena = Find-Serena
+if ($ExistingSerena) {
+  Write-Host "Agent Helm Chrome: using existing Serena from $ExistingSerena."
+} elseif (Confirm-SerenaInstall) {
+  if (-not (Test-Path -LiteralPath $AgentHelmLauncher)) { Fail "Agent Helm CLI launcher is missing at $AgentHelmLauncher" }
+  & $AgentHelmLauncher setup serena --yes
+  if ($LASTEXITCODE -eq 0) {
+    Write-Host 'Agent Helm Chrome: Serena installed and verified.'
+  } else {
+    Write-Host 'Agent Helm Chrome: Serena installation did not complete. Semantic tools can be set up later.'
+  }
+} else {
+  Write-Host 'Agent Helm Chrome: Serena installation skipped. You can install it later from Agent Helm.'
+}
+
+Stage 6 "Native Messaging bridge: $ExtensionId"
+Write-Host 'Agent Helm bridge registered for the selected Chrome Extension ID.'
 
 Stage 7 'Chrome handoff'
 Write-Host "Extension files: $destination"

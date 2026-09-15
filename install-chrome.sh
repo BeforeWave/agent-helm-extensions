@@ -14,6 +14,7 @@ EXTENSION_ID=${AGENT_HELM_CHROME_EXTENSION_ID:-eigfmmjccbiinngdfifjkpmofandcgif}
 TARGET=${AGENT_HELM_EXTENSION_DIR:-$HOME/Downloads/Agent-Helm-Chrome-Extension}
 TUNNEL_RELEASE_URL=https://github.com/openai/tunnel-client/releases
 CLI_LAUNCHER=$HOME/.agent-helm/bin/agent-helm
+MANAGED_BIN=$HOME/.agent-helm/bin
 
 fail() {
   printf '%s\n' "Agent Helm Chrome installer: $1" >&2
@@ -71,6 +72,48 @@ confirm_tunnel_install() {
     "$note"
 }
 
+
+usable_executable() {
+  candidate=$1
+  probe=$2
+  [ -x "$candidate" ] || return 1
+  "$candidate" "$probe" >/dev/null 2>&1
+}
+
+find_tunnel_client() {
+  if candidate=$(command -v tunnel-client 2>/dev/null) && usable_executable "$candidate" --version; then
+    printf '%s\n' "$candidate"
+    return 0
+  fi
+  candidate=$MANAGED_BIN/tunnel-client
+  if usable_executable "$candidate" --version; then
+    printf '%s\n' "$candidate"
+    return 0
+  fi
+  return 1
+}
+
+find_serena() {
+  if candidate=$(command -v serena 2>/dev/null) && usable_executable "$candidate" --help; then
+    printf '%s\n' "$candidate"
+    return 0
+  fi
+  for candidate in \
+    "$MANAGED_BIN/serena" \
+    "${UV_TOOL_BIN_DIR:-}/serena" \
+    "${XDG_BIN_HOME:-}/serena" \
+    "$HOME/.local/bin/serena" \
+    "$HOME"/Library/Python/*/bin/serena
+  do
+    [ "$candidate" != '/serena' ] || continue
+    if usable_executable "$candidate" --help; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
 confirm_serena_install() {
   confirm_optional_install "${AGENT_HELM_INSTALL_SERENA:-}" \
     'Serena enables semantic code tools. Agent Helm works without it, but semantic tools stay unavailable.' \
@@ -89,46 +132,11 @@ AGENT_HELM_RELEASE_VERSION=$(release_tool field --release-url "$RELEASE_URL" --v
   || fail "Could not resolve the Agent Helm release pinned by Chrome Extension Release v$VERSION."
 printf '%s\n' "Agent Helm Chrome: Release v$VERSION -> Extension/Installer artifact ${VERSION%-dev}; Agent Helm v$AGENT_HELM_RELEASE_VERSION -> $AGENT_HELM_PRODUCT_VERSION"
 
-if command -v node >/dev/null 2>&1 && [ "$(node -p 'Number(process.versions.node.split(".")[0])' 2>/dev/null || printf 0)" -ge 22 ]; then
-  stage 1 "Runtime / Node: using existing $(node --version 2>/dev/null || printf 'Node.js')"
-else
-  stage 1 "Runtime / Node: Agent Helm will install its managed Node runtime"
-fi
-
-stage 2 "Agent Helm $AGENT_HELM_PRODUCT_VERSION from Release v$AGENT_HELM_RELEASE_VERSION"
-curl -fsSL "$AGENT_HELM_INSTALL_URL" | AGENT_HELM_CHROME_EXTENSION_ID="$EXTENSION_ID" /bin/sh -s -- "$AGENT_HELM_RELEASE_VERSION" \
-  || fail "Agent Helm installation from Release v$AGENT_HELM_RELEASE_VERSION failed."
-
-stage 3 "OpenAI tunnel-client"
-if EXISTING_TUNNEL_CLIENT=$(command -v tunnel-client 2>/dev/null) && "$EXISTING_TUNNEL_CLIENT" --version >/dev/null 2>&1; then
-  printf '%s\n' "Agent Helm Chrome: using existing tunnel-client from $EXISTING_TUNNEL_CLIENT."
-elif confirm_tunnel_install; then
-  [ -x "$CLI_LAUNCHER" ] || fail "Agent Helm CLI launcher is missing at $CLI_LAUNCHER."
-  "$CLI_LAUNCHER" setup tunnel-client --channel chrome --yes \
-    || fail "OpenAI tunnel-client installation failed."
-else
-  printf '%s\n' 'Agent Helm Chrome: tunnel-client installation skipped. You can install it later from the Tunnel configuration screen.'
-fi
-
-stage 4 "Serena semantic tools"
-if confirm_serena_install; then
-  [ -x "$CLI_LAUNCHER" ] || fail "Agent Helm CLI launcher is missing at $CLI_LAUNCHER."
-  if "$CLI_LAUNCHER" setup serena --yes; then
-    printf '%s\n' 'Agent Helm Chrome: Serena installed and verified.'
-  else
-    printf '%s\n' 'Agent Helm Chrome: Serena installation did not complete. Semantic tools can be set up later.'
-  fi
-else
-  printf '%s\n' 'Agent Helm Chrome: Serena installation skipped. You can install it later from Agent Helm.'
-fi
-
-stage 5 "Native Messaging bridge: registered for $EXTENSION_ID"
-
 ROOT=$(mktemp -d "${TMPDIR:-/tmp}/agent-helm-chrome.XXXXXX")
 trap 'rm -rf "$ROOT"' EXIT HUP INT TERM
 ZIP=$ROOT/extension.zip
 STAGE=$ROOT/extension
-stage 6 "Chrome Extension $VERSION: download and verify"
+stage 1 "Chrome Extension $VERSION: download and verify"
 release_tool download \
   --release-url "$RELEASE_URL" \
   --version "$VERSION" \
@@ -149,6 +157,43 @@ else
 fi
 trap - EXIT HUP INT TERM
 rm -rf "$ROOT"
+
+if command -v node >/dev/null 2>&1 && [ "$(node -p 'Number(process.versions.node.split(".")[0])' 2>/dev/null || printf 0)" -ge 22 ]; then
+  stage 2 "Runtime / Node: using existing $(node --version 2>/dev/null || printf 'Node.js')"
+else
+  stage 2 "Runtime / Node: Agent Helm will install its managed Node runtime"
+fi
+
+stage 3 "Agent Helm $AGENT_HELM_PRODUCT_VERSION from Release v$AGENT_HELM_RELEASE_VERSION"
+curl -fsSL "$AGENT_HELM_INSTALL_URL" | AGENT_HELM_CHROME_EXTENSION_ID="$EXTENSION_ID" /bin/sh -s -- "$AGENT_HELM_RELEASE_VERSION" \
+  || fail "Agent Helm installation from Release v$AGENT_HELM_RELEASE_VERSION failed."
+
+stage 4 "OpenAI tunnel-client"
+if EXISTING_TUNNEL_CLIENT=$(find_tunnel_client); then
+  printf '%s\n' "Agent Helm Chrome: using existing tunnel-client from $EXISTING_TUNNEL_CLIENT."
+elif confirm_tunnel_install; then
+  [ -x "$CLI_LAUNCHER" ] || fail "Agent Helm CLI launcher is missing at $CLI_LAUNCHER."
+  "$CLI_LAUNCHER" setup tunnel-client --channel chrome --yes \
+    || fail "OpenAI tunnel-client installation failed."
+else
+  printf '%s\n' 'Agent Helm Chrome: tunnel-client installation skipped. You can install it later from the Tunnel configuration screen.'
+fi
+
+stage 5 "Serena semantic tools"
+if EXISTING_SERENA=$(find_serena); then
+  printf '%s\n' "Agent Helm Chrome: using existing Serena from $EXISTING_SERENA."
+elif confirm_serena_install; then
+  [ -x "$CLI_LAUNCHER" ] || fail "Agent Helm CLI launcher is missing at $CLI_LAUNCHER."
+  if "$CLI_LAUNCHER" setup serena --yes; then
+    printf '%s\n' 'Agent Helm Chrome: Serena installed and verified.'
+  else
+    printf '%s\n' 'Agent Helm Chrome: Serena installation did not complete. Semantic tools can be set up later.'
+  fi
+else
+  printf '%s\n' 'Agent Helm Chrome: Serena installation skipped. You can install it later from Agent Helm.'
+fi
+
+stage 6 "Native Messaging bridge: registered for $EXTENSION_ID"
 
 stage 7 "Chrome handoff: Extension files are ready at $TARGET"
 printf '%s\n' "Open chrome://extensions, enable Developer mode, choose Load unpacked, and select:"
