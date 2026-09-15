@@ -27,6 +27,7 @@ describe('browser service helpers', () => {
   it('exposes a static win32-x64 installer from the same Extension release', () => {
     expect(agentHelmInstallerSource.windows).toEqual({
       version: extensionManifest.version,
+      releaseVersion: extensionManifest.version,
       platform: 'win32-x64',
       releaseUrl: 'https://github.com/BeforeWave/agent-helm-extensions/releases',
       assetName: `Agent-Helm-Installer-${extensionManifest.version}-win32-x64.cmd`,
@@ -89,14 +90,20 @@ describe('browser service helpers', () => {
     }
   })
 
-  it('hands Popup Agents navigation to the Side Panel exactly once through session storage', async () => {
+  it('hands Popup Agents navigation to background exactly once through session storage', async () => {
     const previousChrome = Object.getOwnPropertyDescriptor(globalThis, 'chrome')
     const sessionState: Record<string, unknown> = {}
+    const runtimeMessages: unknown[] = []
     const openedWindows: number[] = []
     Object.defineProperty(globalThis, 'chrome', {
       configurable: true,
       value: {
-        windows: { async getCurrent() { return { id: 17 } } },
+        runtime: {
+          async sendMessage(message: unknown) {
+            runtimeMessages.push(message)
+            return { ok: true, openOptions: { windowId: 17 } }
+          },
+        },
         sidePanel: { async open({ windowId }: { windowId: number }) { openedWindows.push(windowId) } },
         storage: {
           session: {
@@ -110,6 +117,7 @@ describe('browser service helpers', () => {
     try {
       const browser = new ChromeBrowserCapabilities()
       await browser.openSidePanel('agents')
+      expect(runtimeMessages).toEqual([{ type: 'agent-helm:open-side-panel' }])
       expect(openedWindows).toEqual([17])
       expect(sessionState.agentHelmPendingSettingsSection).toBe('agents')
       expect(await browser.consumePendingSettingsSection()).toBe('agents')
@@ -117,6 +125,10 @@ describe('browser service helpers', () => {
       await browser.openSidePanel('tunnel')
       expect(sessionState.agentHelmPendingSettingsSection).toBe('tunnel')
       expect(await browser.consumePendingSettingsSection()).toBe('tunnel')
+      expect(runtimeMessages).toEqual([
+        { type: 'agent-helm:open-side-panel' },
+        { type: 'agent-helm:open-side-panel' },
+      ])
       expect(openedWindows).toEqual([17, 17])
     } finally {
       if (previousChrome) Object.defineProperty(globalThis, 'chrome', previousChrome)
@@ -403,6 +415,53 @@ describe('browser service helpers', () => {
     await browser.openSidePanel('tunnel')
     expect(section).toBe('tunnel')
     expect(await browser.consumePendingSettingsSection()).toBe('tunnel')
+  })
+
+  it('derives Work Detail runtime from timeline metadata and preserves partial detail on timeline failure', async () => {
+    const summary = {
+      id: 'work-runtime',
+      boundIntents: [],
+      chatUrls: [],
+      createdAt: '2026-09-12T00:00:00.000Z',
+      updatedAt: '2026-09-12T00:01:00.000Z',
+      lastActivityAt: '2026-09-12T00:01:00.000Z',
+      eventCount: 0,
+      chatCount: 1,
+      delegationCount: 0,
+      presentation: { title: 'Runtime work' },
+    }
+    const delegated = new NativeAgentHelmService({
+      async request(method: string) {
+        if (method === 'getChatSessionSummary') return summary
+        if (method === 'getChatSessionTimeline') return [{
+          id: 'delegation:1',
+          timestamp: '2026-09-12T00:01:00.000Z',
+          actor: 'subagent',
+          actorName: 'DSH',
+          presentation: { title: { kind: 'label', label: 'delegation.status' }, details: [] },
+        }]
+        throw new Error('Unexpected native method: ' + method)
+      },
+    } as unknown as NativeMessagingTransport)
+    await expect(delegated.getWorkDetail('work-runtime')).resolves.toMatchObject({
+      title: 'Runtime work',
+      agentLabel: 'DSH',
+      runtimeLabel: 'Native session',
+      timeline: [{ actor: 'subagent', actorName: 'DSH' }],
+    })
+
+    const partial = new NativeAgentHelmService({
+      async request(method: string) {
+        if (method === 'getChatSessionSummary') return summary
+        if (method === 'getChatSessionTimeline') throw new Error('timeline transport failed')
+        throw new Error('Unexpected native method: ' + method)
+      },
+    } as unknown as NativeMessagingTransport)
+    await expect(partial.getWorkDetail('work-runtime')).resolves.toMatchObject({
+      title: 'Runtime work',
+      timeline: [],
+      timelineError: 'timeline transport failed',
+    })
   })
 
 })

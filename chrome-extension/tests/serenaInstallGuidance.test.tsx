@@ -62,6 +62,26 @@ describe('Chrome dependency guidance surfaces', () => {
     expect(html).not.toContain('>Manual setup<')
   })
 
+  it('forces Serena-dependent child switches visually off and disabled while Serena is unavailable', () => {
+    const html = renderToStaticMarkup(
+      <ExtensionSettingsControls
+        snapshot={snapshot('uv tool install -p 3.13 serena-agent')}
+        pending={null}
+        includeCoreRow={false}
+        dependencySetupMode="expandable"
+        codeSenseInitiallyExpanded
+        sectionOrder={['code-sense']}
+        {...callbacks}
+      />,
+    )
+    const switches = [...html.matchAll(/<button[^>]*role="switch"[^>]*>/g)].map((match) => match[0])
+    expect(switches).toHaveLength(2)
+    for (const control of switches) {
+      expect(control).toContain('aria-checked="false"')
+      expect(control).toContain('disabled=""')
+    }
+  })
+
   it('uses Code Sense as one group with ChatGPT and Local Agents sub-settings', () => {
     const collapsed = renderToStaticMarkup(
       <ExtensionSettingsControls

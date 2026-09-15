@@ -12,8 +12,8 @@ it('keeps Chrome Native Messaging method paths on the frozen entry contract', ()
   const actual = [...new Set([...source.matchAll(/(?:this\.)?(?:transport\.)?request(?:<[^\n]*?>)?\(\s*['\"]([^'\"]+)['\"]/g)].map((match) => match[1]))].sort()
   expect(actual).toEqual([
     'bindChatUrl', 'chooseAndRegisterWorkspace', 'configureTunnel', 'findChatSessionSummaryByUrl',
-    'getChatSessionSummary', 'getChatSessionTimeline', 'getExternalUserAccess', 'installDependency',
-    'listChatSessionSummaryPage', 'listWorkspaces', 'setAgentDelegationEnabled', 'setDaemonEnabled',
+    'getChatSessionSummary', 'getChatSessionTimeline', 'getChatSessionTimelineUpdates', 'getExternalUserAccess', 'installDependency',
+    'listChatSessionSummaryPage', 'listWorkspaces', 'releaseChatSessionTimelineTail', 'setAgentDelegationEnabled', 'setDaemonEnabled',
     'setExternalAgentLspEnabled', 'setExternalUserAccess', 'setLocalMcpEnabled', 'supervisorHealth',
   ])
 })

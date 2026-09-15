@@ -1,12 +1,12 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { filterTimelineItems } from '../src/components/WorkDetail'
+import { filterTimelineItems, WorkDetail } from '../src/components/WorkDetail'
 import { partitionWorkHistoryByCurrentConversation, WorkHistoryList } from '../src/components/WorkHistoryList'
-import type { WorkHistorySummary, WorkTimelineItem } from '../src/models/controlPlane'
+import type { WorkHistoryDetail, WorkHistorySummary, WorkTimelineItem } from '../src/models/controlPlane'
 
 const timeline: WorkTimelineItem[] = [
-  { id: 'chat', timestamp: '2026-08-29T00:00:00Z', actor: 'chatgpt', presentation: { title: { kind: 'label', label: 'action.read' }, details: [] } },
-  { id: 'agent', timestamp: '2026-08-29T00:01:00Z', actor: 'subagent', presentation: { title: { kind: 'label', label: 'delegation.prompted' }, details: [] } },
+  { id: 'chat', sequence: 1, timestamp: '2026-08-29T00:00:00Z', actor: 'chatgpt', presentation: { title: { kind: 'label', label: 'action.read' }, details: [] } },
+  { id: 'agent', sequence: 2, timestamp: '2026-08-29T00:01:00Z', actor: 'subagent', presentation: { title: { kind: 'label', label: 'delegation.prompted' }, details: [] } },
 ]
 
 describe('Work Detail activity filters', () => {
@@ -21,14 +21,59 @@ describe('Work Detail activity filters', () => {
 })
 
 
+describe('Work Detail availability states', () => {
+  it('shows the real partial-data error instead of collapsing Agent / runtime to a generic unavailable state', async () => {
+    const React = await import('react')
+    const { renderToStaticMarkup } = await import('react-dom/server')
+    const detail: WorkHistoryDetail = {
+      id: 'partial',
+      title: 'Partial work',
+      lastActivityAt: '2026-09-12T00:01:00Z',
+      createdAt: '2026-09-12T00:00:00Z',
+      eventCount: 0,
+      chatCount: 1,
+      delegationCount: 0,
+      boundIntents: [],
+      chatUrls: [],
+      timeline: [],
+      timelineError: 'timeline transport failed',
+    }
+    const markup = renderToStaticMarkup(React.createElement(WorkDetail, {
+      detail,
+      pageContext: null,
+      client: {} as never,
+    }))
+    expect(markup).toContain('timeline transport failed')
+    expect(markup).not.toContain('Temporarily unavailable')
+  })
+
+  it('keeps terminal Work lookup errors separate from the shared snapshot error state', () => {
+    const source = readFileSync(new URL('../src/app/SidePanelApp.tsx', import.meta.url), 'utf8')
+    expect(source).toContain('const [detailError, setDetailError]')
+    expect(source).toContain("detailError || t('extensionWorkDetailUnavailable')")
+    expect(source).toContain('setDetail(null)')
+  })
+
+  it('subscribes both Work Details surfaces after initial history and cleans live subscriptions on switch or unmount', () => {
+    const sidePanel = readFileSync(new URL('../src/app/SidePanelApp.tsx', import.meta.url), 'utf8')
+    const expanded = readFileSync(new URL('../src/app/ExpandedDetailApp.tsx', import.meta.url), 'utf8')
+    for (const source of [sidePanel, expanded]) {
+      expect(source).toContain('reduce((cursor, item) => Math.max(cursor, item.sequence), 0)')
+      expect(source).toContain('subscribeWorkTimeline(')
+      expect(source).toContain('mergeWorkHistoryTimeline(')
+      expect(source).toContain('unsubscribe?.()')
+    }
+  })
+})
+
 describe('Work Detail context ordering', () => {
-  it('renders bound contexts before the origin context so newest context stays on top', () => {
+  it('renders immutable origin provenance before additional contexts', () => {
     const source = readFileSync(new URL('../src/components/WorkDetail.tsx', import.meta.url), 'utf8')
     const boundContexts = source.indexOf('{detail.boundIntents.map')
     const originContext = source.indexOf('{detail.originIntent ? <ContextCard')
 
-    expect(boundContexts).toBeGreaterThan(-1)
-    expect(originContext).toBeGreaterThan(boundContexts)
+    expect(originContext).toBeGreaterThan(-1)
+    expect(boundContexts).toBeGreaterThan(originContext)
     expect(source).toContain("t('sessionWorkContext')")
     expect(source).toContain('data-expanded={contextExpanded}')
     expect(source).toContain("setContextExpanded(false)")
