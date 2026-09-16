@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { createWorkHistoryListModel, mergeWorkHistoryTimeline } from '../models/workHistory'
+import { createWorkHistoryListModel, groupWorkHistorySummariesByConversation, mergeGroupedWorkHistoryTimeline, mergeWorkHistoryConversationDetail, mergeWorkHistoryTimeline } from '../models/workHistory'
 import type { BrowserControlPlaneClient } from '../client/BrowserControlPlaneClient'
 import { WorkDetail } from '../components/WorkDetail'
 import { WorkHistoryList } from '../components/WorkHistoryList'
@@ -98,7 +98,10 @@ export function SidePanelApp({ client }: { client: BrowserControlPlaneClient }) 
     workspaces: snapshot?.workspaces.map((workspace) => ({ id: workspace.id, title: workspaceDisplayTitle(workspace) })) ?? [],
     autoSelectFirst: false,
   }), [snapshot, workspaceFilter, selectedWorkId])
-  const visibleWorks = workHistory.items
+  const groupedWorks = useMemo(() => groupWorkHistorySummariesByConversation(snapshot?.works ?? []), [snapshot])
+  const visibleWorks = useMemo(() => groupWorkHistorySummariesByConversation(workHistory.items), [workHistory.items])
+  const selectedWork = selectedWorkId ? groupedWorks.find((work) => work.id === selectedWorkId) : undefined
+  const selectedWorkMembersKey = selectedWork?.workIds?.join('\u0000') ?? selectedWorkId ?? ''
   const workHistoryLoading = (loading && !snapshot) || !currentConversation.resolved
 
   useEffect(() => {
@@ -125,25 +128,31 @@ export function SidePanelApp({ client }: { client: BrowserControlPlaneClient }) 
       return
     }
     let cancelled = false
-    let unsubscribe: (() => void) | undefined
+    const unsubscribes: Array<() => void> = []
+    const workIds = selectedWork?.workIds?.length ? selectedWork.workIds : [selectedWorkId]
     setDetail(null)
     setDetailError(null)
     setDetailLoading(true)
-    void client.getWorkDetail(selectedWorkId).then((value) => {
+    void Promise.all(workIds.map(async (workId) => await client.getWorkDetail(workId))).then((details) => {
       if (cancelled) return
+      const grouped = details.length > 1 && Boolean(selectedWork)
+      const value = mergeWorkHistoryConversationDetail(selectedWork ?? details[0]!, details)
       setDetail(value)
       setDetailError(null)
-      const afterSequence = value.timeline.reduce((cursor, item) => Math.max(cursor, item.sequence), 0)
-      unsubscribe = client.subscribeWorkTimeline(selectedWorkId, afterSequence, (updates) => {
-        if (cancelled) return
-        setDetail((current) => {
-          const base = current?.id === selectedWorkId ? current : value
-          return { ...base, timeline: mergeWorkHistoryTimeline(base.timeline, updates), timelineError: undefined }
-        })
-      }, (cause) => {
-        if (cancelled) return
-        setDetail((current) => current?.id === selectedWorkId ? { ...current, timelineError: cause.message } : current)
-      })
+      for (const member of details) {
+        const afterSequence = member.timeline.reduce((cursor, item) => Math.max(cursor, item.sequence), 0)
+        unsubscribes.push(client.subscribeWorkTimeline(member.id, afterSequence, (updates) => {
+          if (cancelled) return
+          setDetail((current) => {
+            if (current?.id !== selectedWorkId) return current
+            if (!grouped) return { ...current, timeline: mergeWorkHistoryTimeline(current.timeline, updates), timelineError: undefined }
+            return { ...current, timeline: mergeGroupedWorkHistoryTimeline(current.timeline, member.id, updates), timelineError: undefined }
+          })
+        }, (cause) => {
+          if (cancelled) return
+          setDetail((current) => current?.id === selectedWorkId ? { ...current, timelineError: cause.message } : current)
+        }))
+      }
     }).catch((cause) => {
       if (!cancelled) setDetailError(cause instanceof Error ? cause.message : String(cause))
     }).finally(() => {
@@ -151,9 +160,9 @@ export function SidePanelApp({ client }: { client: BrowserControlPlaneClient }) 
     })
     return () => {
       cancelled = true
-      unsubscribe?.()
+      for (const unsubscribe of unsubscribes) unsubscribe()
     }
-  }, [client, selectedWorkId])
+  }, [client, selectedWorkId, selectedWorkMembersKey])
 
   const selectWork = (workId: string) => {
     rememberedScrollTop.current = listScrollRef.current?.scrollTop ?? 0
@@ -250,7 +259,7 @@ export function SidePanelApp({ client }: { client: BrowserControlPlaneClient }) 
   return (
     <main className="sidepanel-shell">
       <header className="brand-header">
-        <div>
+        <div className="brand-copy">
           <div className="brand-title">Agent Helm</div>
           <div className="brand-subtitle">{t('extensionTagline')}</div>
         </div>

@@ -17,8 +17,9 @@ body { min-width: 0; background: #fff; }
 button, select { font: inherit; }
 button { color: inherit; }
 
-.brand-title { font-size: 17px; line-height: 22px; font-weight: 700; letter-spacing: -.01em; }
-.brand-subtitle { margin-top: 2px; color: #747983; font-size: 12px; line-height: 17px; }
+.brand-copy { min-width: 0; display: flex; align-items: baseline; gap: 10px; }
+.brand-title { flex: none; font-size: 17px; line-height: 22px; font-weight: 700; letter-spacing: -.01em; }
+.brand-subtitle { min-width: 0; overflow: hidden; color: #747983; font-size: 12px; line-height: 17px; text-overflow: ellipsis; white-space: nowrap; }
 .connection-status { display: inline-flex; min-width: 0; align-items: center; gap: 6px; color: #747983; font-size: 11px; line-height: 16px; }
 .status-dot { width: 8px; height: 8px; flex: none; border-radius: 50%; background: #a0a4ac; }
 .status-dot[data-state="connected"], .status-dot[data-state="running"], .status-dot[data-state="ready"] { background: #2f8f5b; }
@@ -201,6 +202,8 @@ button.popup-setting-row:hover .popup-panel-entry__arrow { background: var(--hel
 .detail-section__chevron { color: var(--helm-secondary); font-size: 11px; line-height: 18px; }
 .detail-section[data-expanded=true] .detail-section__toggle { margin-bottom: 10px; }
 .context-card { padding: 10px 12px; border: 1px solid var(--helm-border-strong); border-radius: 9px; }
+.context-card--clickable { cursor: pointer; }
+.context-card--clickable:hover, .context-card--clickable:focus-visible { background: var(--helm-hover); outline: none; }
 .context-card + .context-card { margin-top: 8px; }
 .context-card__head { display: flex; align-items: center; gap: 10px; }
 .context-card__role { flex: none; color: #777c85; font-size: 11px; line-height: 17px; font-weight: 650; }
@@ -210,6 +213,7 @@ button.popup-setting-row:hover .popup-panel-entry__arrow { background: var(--hel
 .context-card__task { margin-top: 7px; }
 .context-card__task summary { color: #737882; font-size: 11px; line-height: 17px; cursor: pointer; }
 .context-card__task div { margin-top: 6px; padding: 8px 10px; border-radius: 7px; background: #f6f6f7; font-size: 12px; line-height: 18px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.intent-detail-task { margin-top: 12px; color: var(--helm-secondary); font-size: 12px; line-height: 18px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .timeline-section { border-bottom: 1px solid var(--helm-border); }
 .timeline-filters { height: 48px; display: flex; align-items: center; gap: 6px; padding: 0 20px; border-bottom: 1px solid var(--helm-border); }
 .timeline-filter { border: 0; border-radius: 7px; background: transparent; color: var(--helm-secondary); padding: 5px 9px; font-size: 12px; line-height: 18px; cursor: pointer; transition: background-color .12s ease, color .12s ease; }

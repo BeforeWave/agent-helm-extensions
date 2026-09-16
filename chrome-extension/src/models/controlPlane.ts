@@ -131,6 +131,8 @@ export interface WorkHistorySummary {
   eventCount: number
   chatCount: number
   delegationCount: number
+  chatUrls?: string[]
+  workIds?: string[]
   agentLabel?: string
   runtimeLabel?: string
 }
@@ -149,6 +151,7 @@ export interface WorkTimelineItem {
   id: string
   sequence: number
   timestamp: string
+  workId?: string
   actor: 'chatgpt' | 'subagent'
   actorName?: string
   presentation: WorkHistoryTimelinePresentation
@@ -164,12 +167,23 @@ export interface WorkHistoryPage {
   nextCursor?: string
 }
 
+export interface WorkIntentActivityScope {
+  id: string
+  intent: WorkConversationIntent
+  kind: 'origin' | 'bound'
+  startedAt: string
+  endedAt?: string
+  boundAt?: string
+  timelineError?: string
+}
+
 export interface WorkHistoryDetail extends WorkHistorySummary {
   createdAt: string
   originIntent?: WorkConversationIntent
   boundIntents: WorkBoundConversationIntent[]
   chatUrls: string[]
   timeline: WorkTimelineItem[]
+  intentScopes?: WorkIntentActivityScope[]
   timelineError?: string
   localDeepLink?: string | null
 }

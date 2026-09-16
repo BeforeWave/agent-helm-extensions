@@ -64,6 +64,8 @@ function projectWorkSummary(value: unknown): WorkHistorySummary | undefined {
     eventCount: item.eventCount,
     chatCount: item.chatCount,
     delegationCount: item.delegationCount,
+    chatUrls: [...session.chatUrls],
+    workIds: [item.id],
     ...(session.agentLabel ? { agentLabel: session.agentLabel } : {}),
     ...(session.runtimeLabel ? { runtimeLabel: session.runtimeLabel } : {}),
   }
@@ -80,6 +82,7 @@ function projectTimeline(value: unknown): WorkTimelineItem | undefined {
     id,
     sequence: numberValue(item.sequence),
     timestamp,
+    ...(stringValue(item.sessionId) ? { workId: stringValue(item.sessionId)! } : {}),
     actor,
     ...(stringValue(item.actorName) ? { actorName: stringValue(item.actorName)! } : {}),
     presentation: normalizeWorkHistoryTimelinePresentation(item),

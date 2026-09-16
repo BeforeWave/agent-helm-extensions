@@ -14,6 +14,7 @@ import {
 const ACTION_STATUS_ALARM = 'agent-helm-action-status'
 const PANEL_STATE_PREFIX = 'agentHelmSidePanelMode:'
 const SIDE_PANEL_PATH = 'sidepanel.html'
+const SNAPSHOT_RECOVERY_DELAY_MS = 500
 
 interface PanelModeState {
   mode: 'chatgpt-scoped' | 'global'
@@ -103,12 +104,19 @@ async function applyPanelMode(windowId: number, state: PanelModeState): Promise<
   }
 }
 
+async function closeGlobalSidePanel(windowId: number): Promise<void> {
+  const sidePanel = chrome.sidePanel as typeof chrome.sidePanel & { close?: (options: { windowId: number }) => Promise<void> }
+  if (typeof sidePanel.close !== 'function') return
+  await sidePanel.close({ windowId }).catch(() => {})
+}
+
 async function syncPanelForTab(tab: chrome.tabs.Tab): Promise<void> {
   if (typeof tab.id !== 'number' || typeof tab.windowId !== 'number') return
   const state = await readPanelMode(tab.windowId)
   if (!state) return
   const enabled = state.mode === 'global' || (tab.id === state.sourceTabId && pageContextFromTab(tab).kind !== 'other')
   await chrome.sidePanel.setOptions({ tabId: tab.id, ...(enabled ? { path: SIDE_PANEL_PATH } : {}), enabled })
+  if (state.mode === 'chatgpt-scoped' && !enabled) await closeGlobalSidePanel(tab.windowId)
 }
 
 async function prepareSidePanelForCurrentTab(): Promise<chrome.sidePanel.OpenOptions> {
@@ -120,6 +128,7 @@ async function prepareSidePanelForCurrentTab(): Promise<chrome.sidePanel.OpenOpt
     : { mode: 'global', sourceTabId: null }
   await writePanelMode(tab.windowId, state)
   await applyPanelMode(tab.windowId, state)
+  if (chatGptScoped) await closeGlobalSidePanel(tab.windowId)
   return chatGptScoped ? { tabId: tab.id } : { windowId: tab.windowId }
 }
 
@@ -127,6 +136,8 @@ export function installBackgroundHandlers(service: AgentHelmServiceAdapter = cre
   let state: ControlPlaneStateUpdate = { snapshot: null, error: null }
   let snapshotFingerprint: string | null = null
   let snapshotQueue: Promise<void> = Promise.resolve()
+  let snapshotRecoveryTimer: ReturnType<typeof setTimeout> | undefined
+  let degradedSnapshotFingerprint: string | null = null
 
   interface TimelineStreamState {
     ports: Map<chrome.runtime.Port, number>
@@ -241,19 +252,53 @@ export function installBackgroundHandlers(service: AgentHelmServiceAdapter = cre
     }).catch(() => {})
   }
 
+  const clearSnapshotRecovery = () => {
+    if (snapshotRecoveryTimer) clearTimeout(snapshotRecoveryTimer)
+    snapshotRecoveryTimer = undefined
+    degradedSnapshotFingerprint = null
+  }
+
+  const scheduleSnapshotRecovery = () => {
+    if (snapshotRecoveryTimer) return
+    snapshotRecoveryTimer = setTimeout(() => {
+      snapshotRecoveryTimer = undefined
+      void runSnapshotOperation(refreshAuthoritativeSnapshot).catch(() => {})
+    }, SNAPSHOT_RECOVERY_DELAY_MS)
+  }
+
   const refreshAuthoritativeSnapshot = async (): Promise<ControlPlaneSnapshot> => {
     try {
       const snapshot = await service.getSnapshot()
+      const current = state.snapshot
+      const currentCore = current?.settings.find((setting) => setting.id === 'core')
+      const nextCore = snapshot.settings.find((setting) => setting.id === 'core')
+      const currentTransportHealthy = current?.connection.state === 'connected' && currentCore?.state === 'running' && currentCore.enabled !== false
+      const nextTransportHealthy = snapshot.connection.state === 'connected' && nextCore?.state === 'running' && nextCore.enabled !== false
+      const nextPresentation = deriveExtensionConnectionPresentation(snapshot)
+      const nextFingerprint = JSON.stringify(snapshot)
+      if (current && currentTransportHealthy && !nextTransportHealthy) {
+        if (degradedSnapshotFingerprint !== nextFingerprint) {
+          degradedSnapshotFingerprint = nextFingerprint
+          await publishState(current, nextPresentation.issue ?? 'Agent Helm connection is recovering.')
+          scheduleSnapshotRecovery()
+          return current
+        }
+      }
+      clearSnapshotRecovery()
       await publishState(snapshot, null)
       return snapshot
     } catch (cause) {
       await publishState(state.snapshot, errorMessage(cause))
+      scheduleSnapshotRecovery()
       throw cause
     }
   }
 
   const publishMutationSnapshot = async (snapshot: ControlPlaneSnapshot | null): Promise<ControlPlaneSnapshot | null> => {
-    if (snapshot) await publishState(snapshot, null)
+    if (snapshot) {
+      clearSnapshotRecovery()
+      await publishState(snapshot, null)
+    }
     return snapshot
   }
 
@@ -364,5 +409,6 @@ export function installBackgroundHandlers(service: AgentHelmServiceAdapter = cre
     chrome.tabs.onActivated.removeListener(onTabActivated)
     chrome.tabs.onUpdated.removeListener(onTabUpdated)
     chrome.windows.onRemoved.removeListener(onWindowRemoved)
+    clearSnapshotRecovery()
   }
 }

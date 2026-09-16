@@ -2,11 +2,20 @@ import { t } from '../locale'
 import type { WorkHistorySummary } from '../models/controlPlane'
 import { formatTimestamp } from '../services/time'
 
+function sharesConversation(left: WorkHistorySummary, right: WorkHistorySummary): boolean {
+  const leftIds = new Set(left.workIds?.length ? left.workIds : [left.id])
+  const rightIds = right.workIds?.length ? right.workIds : [right.id]
+  if (rightIds.some((id) => leftIds.has(id))) return true
+  const leftUrls = new Set(left.chatUrls ?? [])
+  return (right.chatUrls ?? []).some((url) => leftUrls.has(url))
+}
+
 export function partitionWorkHistoryByCurrentConversation(works: WorkHistorySummary[], currentConversationWork: WorkHistorySummary | null | undefined) {
   if (!currentConversationWork) return { current: null, recent: works }
+  const current = works.find((work) => sharesConversation(work, currentConversationWork)) ?? currentConversationWork
   return {
-    current: currentConversationWork,
-    recent: works.filter((work) => work.id !== currentConversationWork.id),
+    current,
+    recent: works.filter((work) => !sharesConversation(work, currentConversationWork)),
   }
 }
 

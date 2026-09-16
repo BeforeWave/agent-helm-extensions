@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { WorkHistoryPresentationDetail, WorkHistoryPresentationLabel, WorkHistoryPresentationTitle } from '@beforewave/agent-helm-ui-contract'
-import { filterWorkHistoryTimeline, type WorkHistoryActivityFilter } from '../models/workHistory'
+import { createWorkHistoryIntentActivityScopes, filterWorkHistoryTimeline, filterWorkHistoryTimelineByIntentScope, type WorkHistoryActivityFilter } from '../models/workHistory'
 import type { BrowserControlPlaneClient } from '../client/BrowserControlPlaneClient'
 import { t } from '../locale'
 import type { PageContext, WorkConversationIntent, WorkHistoryDetail as WorkHistoryDetailModel, WorkHistorySummary, WorkTimelineItem } from '../models/controlPlane'
@@ -63,19 +63,54 @@ export function filterTimelineItems(timeline: WorkTimelineItem[], filter: Activi
   return filterWorkHistoryTimeline(timeline, filter)
 }
 
-function ContextCard({ intent, role, boundAt }: { intent: WorkConversationIntent; role: string; boundAt?: string }) {
+function ContextCard({ intent, role, boundAt, onOpen }: { intent: WorkConversationIntent; role: string; boundAt?: string; onOpen?: () => void }) {
   return (
-    <article className="context-card">
+    <article
+      className={onOpen ? 'context-card context-card--clickable' : 'context-card'}
+      {...(onOpen ? { role: 'button', tabIndex: 0 } : {})}
+      onClick={onOpen}
+      onKeyDown={onOpen ? (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onOpen() } } : undefined}
+    >
       <div className="context-card__head">
         <span className="context-card__role">{role}</span>
         <span className="context-card__message">{intent.message}</span>
       </div>
       {boundAt ? <div className="context-card__meta"><span>{t('sessionBoundAt')} · {formatTimestamp(boundAt)}</span></div> : null}
-      <details className="context-card__task">
+      <details className="context-card__task" onClick={(event) => event.stopPropagation()}>
         <summary>{t('sessionTaskContext')}</summary>
         <div>{intent.task}</div>
       </details>
     </article>
+  )
+}
+
+function ActivityTimeline({ timeline, timelineError }: { timeline: WorkTimelineItem[]; timelineError?: string }) {
+  const [activityFilter, setActivityFilter] = useState<ActivityFilter>('all')
+  const visibleTimeline = filterTimelineItems(timeline, activityFilter)
+  return (
+    <section className="timeline-section">
+      <nav className="timeline-filters" aria-label={t('extensionActivityType')}>
+        <button type="button" className="timeline-filter" data-active={activityFilter === 'all'} onClick={() => setActivityFilter('all')}>{t('sessionAll')}</button>
+        <button type="button" className="timeline-filter" data-active={activityFilter === 'chatgpt'} onClick={() => setActivityFilter('chatgpt')}>{t('sessionChatGPT')}</button>
+        <button type="button" className="timeline-filter" data-active={activityFilter === 'subagent'} onClick={() => setActivityFilter('subagent')}>{t('sessionSubagent')}</button>
+      </nav>
+      {timelineError ? <div className="error-banner">{timelineError}</div> : null}
+      <div className="timeline">
+        {visibleTimeline.length ? visibleTimeline.map((item) => (
+          <article className="timeline-item" key={item.id}>
+            <time>{formatTimestamp(item.timestamp)}</time>
+            <div><span className="actor-badge">{item.actorName || (item.actor === 'subagent' ? t('sessionSubagent') : t('sessionChatGPT'))}</span></div>
+            <div className="timeline-item__content">
+              <strong>{presentationTitle(item.presentation.title)}</strong>
+              {item.presentation.primary ? <div>{item.presentation.primary}</div> : null}
+              <div className="timeline-item__secondary">
+                {item.presentation.details.map((detail, detailIndex) => <span key={detailIndex}>{presentationDetail(detail)}</span>)}
+              </div>
+            </div>
+          </article>
+        )) : <div className="empty-state">{t('extensionNoActivity')}</div>}
+      </div>
+    </section>
   )
 }
 
@@ -104,13 +139,16 @@ export function WorkDetail({
   onConversationBound,
   onViewConversationWork,
 }: WorkDetailProps) {
-  const [activityFilter, setActivityFilter] = useState<ActivityFilter>('all')
   const [contextExpanded, setContextExpanded] = useState(false)
+  const [selectedIntentId, setSelectedIntentId] = useState<string | null>(null)
   const [binding, setBinding] = useState(false)
   const [bindingError, setBindingError] = useState<string | null>(null)
   const currentConversation = pageContext?.conversationUrl ?? null
+  const intentScopes = useMemo(() => detail.intentScopes?.length ? detail.intentScopes : createWorkHistoryIntentActivityScopes([detail]), [detail])
+  const selectedIntent = selectedIntentId ? intentScopes.find((scope) => scope.id === selectedIntentId) : undefined
   useEffect(() => { setBindingError(null) }, [currentConversation])
-  useEffect(() => { setContextExpanded(false) }, [detail.id])
+  useEffect(() => { setContextExpanded(false); setSelectedIntentId(null) }, [detail.id])
+  useEffect(() => { if (selectedIntentId && !selectedIntent) setSelectedIntentId(null) }, [selectedIntentId, selectedIntent])
   const directlyBound = isConversationBound(detail, pageContext)
   const linkedHere = Boolean(currentConversation) && (directlyBound || currentConversationWork?.id === detail.id)
   const linkedElsewhere = Boolean(currentConversation && currentConversationWork && currentConversationWork.id !== detail.id && !directlyBound)
@@ -133,8 +171,26 @@ export function WorkDetail({
   }
 
   const openBoundConversation = linkedHere && currentConversation ? currentConversation : detail.chatUrls.at(-1)
-  const visibleTimeline = filterTimelineItems(detail.timeline, activityFilter)
   const linkedConversationCount = detail.chatUrls.length
+
+  if (selectedIntent) {
+    const intentTimeline = filterWorkHistoryTimelineByIntentScope(detail.timeline, selectedIntent)
+    return (
+      <div className="work-detail">
+        <header className="detail-toolbar">
+          <div className="detail-toolbar__left">
+            <button type="button" className="icon-button detail-back" onClick={() => setSelectedIntentId(null)}><BackIcon /><span>{t('extensionConversation')}</span></button>
+          </div>
+        </header>
+        <section className="detail-summary detail-summary--intent">
+          <h1>{selectedIntent.intent.message}</h1>
+          <div className="detail-times">{selectedIntent.kind === 'bound' ? t('sessionBoundAt') : t('sessionCreated')} · {formatTimestamp(selectedIntent.startedAt)}</div>
+          <div className="intent-detail-task">{selectedIntent.intent.task}</div>
+        </section>
+        <ActivityTimeline key={selectedIntent.id} timeline={intentTimeline} timelineError={selectedIntent.timelineError} />
+      </div>
+    )
+  }
 
   const conversationPrimary = currentConversation
     ? t('extensionCurrentConversationDetected')
@@ -200,34 +256,22 @@ export function WorkDetail({
           <span className="detail-section__chevron" aria-hidden="true">{contextExpanded ? '▾' : '▸'}</span>
         </button>
         {contextExpanded ? <>
-          {detail.originIntent ? <ContextCard intent={detail.originIntent} role={t('sessionOriginChat')} /> : detail.boundIntents.length ? null : <div className="empty-state">{t('sessionUnboundContext')}</div>}
-          {detail.boundIntents.map((entry, index) => <ContextCard key={`${entry.boundAt}:${index}`} intent={entry.intent} boundAt={entry.boundAt} role={`${t('sessionBoundChats')} ${detail.boundIntents.length - index}`} />)}
+          {intentScopes.length ? intentScopes.map((scope) => (
+            <ContextCard
+              key={scope.id}
+              intent={scope.intent}
+              boundAt={scope.boundAt}
+              role={scope.kind === 'origin' ? t('sessionOriginChat') : t('sessionBoundChats')}
+              onOpen={() => setSelectedIntentId(scope.id)}
+            />
+          )) : <>
+            {detail.originIntent ? <ContextCard intent={detail.originIntent} role={t('sessionOriginChat')} /> : detail.boundIntents.length ? null : <div className="empty-state">{t('sessionUnboundContext')}</div>}
+            {detail.boundIntents.map((entry, index) => <ContextCard key={`${entry.boundAt}:${index}`} intent={entry.intent} boundAt={entry.boundAt} role={`${t('sessionBoundChats')} ${detail.boundIntents.length - index}`} />)}
+          </>}
         </> : null}
       </section>
 
-      <section className="timeline-section">
-        <nav className="timeline-filters" aria-label={t('extensionActivityType')}>
-          <button type="button" className="timeline-filter" data-active={activityFilter === 'all'} onClick={() => setActivityFilter('all')}>{t('sessionAll')}</button>
-          <button type="button" className="timeline-filter" data-active={activityFilter === 'chatgpt'} onClick={() => setActivityFilter('chatgpt')}>{t('sessionChatGPT')}</button>
-          <button type="button" className="timeline-filter" data-active={activityFilter === 'subagent'} onClick={() => setActivityFilter('subagent')}>{t('sessionSubagent')}</button>
-        </nav>
-        {detail.timelineError ? <div className="error-banner">{detail.timelineError}</div> : null}
-        <div className="timeline">
-          {visibleTimeline.length ? visibleTimeline.map((item) => (
-            <article className="timeline-item" key={item.id}>
-              <time>{formatTimestamp(item.timestamp)}</time>
-              <div><span className="actor-badge">{item.actorName || (item.actor === 'subagent' ? t('sessionSubagent') : t('sessionChatGPT'))}</span></div>
-              <div className="timeline-item__content">
-                <strong>{presentationTitle(item.presentation.title)}</strong>
-                {item.presentation.primary ? <div>{item.presentation.primary}</div> : null}
-                <div className="timeline-item__secondary">
-                  {item.presentation.details.map((detail, detailIndex) => <span key={detailIndex}>{presentationDetail(detail)}</span>)}
-                </div>
-              </div>
-            </article>
-          )) : <div className="empty-state">{t('extensionNoActivity')}</div>}
-        </div>
-      </section>
+      <ActivityTimeline key="conversation" timeline={detail.timeline} timelineError={detail.timelineError} />
     </div>
   )
 }
