@@ -96,6 +96,7 @@ function installFakeChrome(initialTabs: chrome.tabs.Tab[]) {
   const tabs = initialTabs.map((tab) => ({ ...tab }))
   const sessionState: Record<string, unknown> = {}
   const sidePanelEnabled = new Map<number, boolean>()
+  const sidePanelOptions = new Map<number, { path?: string; enabled?: boolean }>()
   const sidePanelOpenCalls: Array<{ tabId?: number; windowId?: number }> = []
 
   function connect(connectInfo?: chrome.runtime.ConnectInfo): chrome.runtime.Port {
@@ -184,9 +185,19 @@ function installFakeChrome(initialTabs: chrome.tabs.Tab[]) {
       },
       sidePanel: {
         async setOptions(options: chrome.sidePanel.PanelOptions) {
-          if (typeof options.tabId === 'number' && typeof options.enabled === 'boolean') sidePanelEnabled.set(options.tabId, options.enabled)
+          if (typeof options.tabId !== 'number') return
+          const current = sidePanelOptions.get(options.tabId) ?? {}
+          const next = { ...current, ...options }
+          sidePanelOptions.set(options.tabId, next)
+          if (typeof options.enabled === 'boolean') sidePanelEnabled.set(options.tabId, options.enabled)
         },
-        async open(options: { tabId?: number; windowId?: number }) { sidePanelOpenCalls.push({ ...options }) },
+        async open(options: { tabId?: number; windowId?: number }) {
+          if (typeof options.tabId === 'number') {
+            const specific = sidePanelOptions.get(options.tabId)
+            if (specific && (specific.enabled === false || !specific.path)) throw new Error(`No active side panel for tabId: ${options.tabId}`)
+          }
+          sidePanelOpenCalls.push({ ...options })
+        },
       },
       storage: {
         session: {
@@ -220,6 +231,7 @@ function installFakeChrome(initialTabs: chrome.tabs.Tab[]) {
     },
     sessionState,
     sidePanelEnabled,
+    sidePanelOptions,
     sidePanelOpenCalls,
     restore() {
       if (previousChrome) Object.defineProperty(globalThis, 'chrome', previousChrome)
