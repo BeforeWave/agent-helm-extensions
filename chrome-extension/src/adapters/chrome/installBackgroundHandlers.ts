@@ -13,6 +13,7 @@ import {
 
 const ACTION_STATUS_ALARM = 'agent-helm-action-status'
 const PANEL_STATE_PREFIX = 'agentHelmSidePanelMode:'
+const SIDE_PANEL_PATH = 'sidepanel.html'
 
 interface PanelModeState {
   mode: 'chatgpt-scoped' | 'global'
@@ -98,7 +99,7 @@ async function applyPanelMode(windowId: number, state: PanelModeState): Promise<
   for (const tab of tabs) {
     if (typeof tab.id !== 'number') continue
     const enabled = state.mode === 'global' || (tab.id === state.sourceTabId && pageContextFromTab(tab).kind !== 'other')
-    await chrome.sidePanel.setOptions({ tabId: tab.id, enabled })
+    await chrome.sidePanel.setOptions({ tabId: tab.id, ...(enabled ? { path: SIDE_PANEL_PATH } : {}), enabled })
   }
 }
 
@@ -107,7 +108,7 @@ async function syncPanelForTab(tab: chrome.tabs.Tab): Promise<void> {
   const state = await readPanelMode(tab.windowId)
   if (!state) return
   const enabled = state.mode === 'global' || (tab.id === state.sourceTabId && pageContextFromTab(tab).kind !== 'other')
-  await chrome.sidePanel.setOptions({ tabId: tab.id, enabled })
+  await chrome.sidePanel.setOptions({ tabId: tab.id, ...(enabled ? { path: SIDE_PANEL_PATH } : {}), enabled })
 }
 
 async function prepareSidePanelForCurrentTab(): Promise<chrome.sidePanel.OpenOptions> {
