@@ -395,6 +395,17 @@ describe('browser service helpers', () => {
   })
 
 
+  it('keeps the Side Panel tagline inline to the right of the Agent Helm title', () => {
+    const source = readFileSync(new URL('../src/app/SidePanelApp.tsx', import.meta.url), 'utf8')
+    const styles = readFileSync(new URL('../src/app/styles.css', import.meta.url), 'utf8')
+    expect(source).toContain('<div className="brand-copy">')
+    expect(source).toContain('<div className="brand-title">Agent Helm</div>')
+    expect(source).toContain("<div className=\"brand-subtitle\">{t('extensionTagline')}</div>")
+    expect(styles).toContain('.brand-copy { min-width: 0; display: flex; align-items: baseline; gap: 10px; }')
+    expect(styles).toContain('white-space: nowrap;')
+    expect(styles).not.toContain('.brand-subtitle { margin-top: 2px;')
+  })
+
   it('keeps dev:web as a thin host around the production Extension apps', async () => {
     const source = readFileSync(new URL('../preview/PreviewApp.tsx', import.meta.url), 'utf8')
     expect(source).toContain("import { PopupApp } from '../src/app/PopupApp'")
@@ -435,6 +446,7 @@ describe('browser service helpers', () => {
         if (method === 'getChatSessionSummary') return summary
         if (method === 'getChatSessionTimeline') return [{
           id: 'delegation:1',
+          sessionId: 'work-runtime',
           timestamp: '2026-09-12T00:01:00.000Z',
           actor: 'subagent',
           actorName: 'DSH',
@@ -447,7 +459,7 @@ describe('browser service helpers', () => {
       title: 'Runtime work',
       agentLabel: 'DSH',
       runtimeLabel: 'Native session',
-      timeline: [{ actor: 'subagent', actorName: 'DSH' }],
+      timeline: [{ workId: 'work-runtime', actor: 'subagent', actorName: 'DSH' }],
     })
 
     const partial = new NativeAgentHelmService({

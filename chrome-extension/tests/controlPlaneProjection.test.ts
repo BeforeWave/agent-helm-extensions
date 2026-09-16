@@ -96,6 +96,8 @@ describe('native Core snapshot projection', () => {
       eventCount: 4,
       delegationCount: 1,
       chatCount: 1,
+      chatUrls: ['https://chatgpt.com/c/session-1'],
+      workIds: ['session-1'],
     })
   })
 

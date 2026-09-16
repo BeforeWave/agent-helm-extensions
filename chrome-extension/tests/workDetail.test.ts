@@ -61,8 +61,21 @@ describe('Work Detail availability states', () => {
       expect(source).toContain('reduce((cursor, item) => Math.max(cursor, item.sequence), 0)')
       expect(source).toContain('subscribeWorkTimeline(')
       expect(source).toContain('mergeWorkHistoryTimeline(')
-      expect(source).toContain('unsubscribe?.()')
     }
+    expect(sidePanel).toContain('for (const unsubscribe of unsubscribes) unsubscribe()')
+    expect(expanded).toContain('unsubscribe?.()')
+  })
+})
+
+describe('Work Detail intent navigation', () => {
+  it('opens a separate intent page and returns to the aggregated conversation detail', () => {
+    const source = readFileSync(new URL('../src/components/WorkDetail.tsx', import.meta.url), 'utf8')
+    expect(source).toContain('const [selectedIntentId, setSelectedIntentId]')
+    expect(source).toContain('filterWorkHistoryTimelineByIntentScope(detail.timeline, selectedIntent)')
+    expect(source).toContain("<ActivityTimeline key={selectedIntent.id} timeline={intentTimeline}")
+    expect(source).toContain("onClick={() => setSelectedIntentId(null)}><BackIcon /><span>{t('extensionConversation')}</span>")
+    expect(source).toContain('onOpen={() => setSelectedIntentId(scope.id)}')
+    expect(source).toContain('<ActivityTimeline key="conversation" timeline={detail.timeline}')
   })
 })
 
@@ -91,7 +104,7 @@ describe('Work Detail conversation binding placement', () => {
     const summary = source.indexOf('<section className="detail-summary">')
     const activity = source.indexOf("<dt>{t('extensionActivity')}</dt>")
     const chatgpt = source.indexOf('<div className="detail-chatgpt-fact">')
-    const timeline = source.indexOf('<section className="timeline-section">')
+    const timeline = source.indexOf('<ActivityTimeline key="conversation"')
 
     expect(summary).toBeGreaterThan(-1)
     expect(activity).toBeGreaterThan(summary)
@@ -130,6 +143,27 @@ describe('Work History current conversation projection', () => {
   it('pins the current-conversation Work without duplicating it in Recent Work', () => {
     const model = partitionWorkHistoryByCurrentConversation([currentWork, otherWork], currentWork)
     expect(model.current?.id).toBe('current')
+    expect(model.recent.map((work) => work.id)).toEqual(['other'])
+  })
+
+  it('pins the grouped Recent Work entry when another member session belongs to the current conversation', () => {
+    const grouped: WorkHistorySummary = {
+      id: 'latest-member',
+      title: 'Latest member',
+      lastActivityAt: '2026-09-16T00:00:00Z',
+      eventCount: 2,
+      chatCount: 1,
+      delegationCount: 0,
+      chatUrls: ['https://chatgpt.com/c/shared'],
+      workIds: ['latest-member', 'current'],
+    }
+    const current: WorkHistorySummary = {
+      ...currentWork,
+      chatUrls: ['https://chatgpt.com/c/shared'],
+      workIds: ['current'],
+    }
+    const model = partitionWorkHistoryByCurrentConversation([grouped, otherWork], current)
+    expect(model.current?.id).toBe('latest-member')
     expect(model.recent.map((work) => work.id)).toEqual(['other'])
   })
 

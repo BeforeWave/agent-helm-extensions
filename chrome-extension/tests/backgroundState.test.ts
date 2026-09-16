@@ -98,6 +98,8 @@ function installFakeChrome(initialTabs: chrome.tabs.Tab[]) {
   const sidePanelEnabled = new Map<number, boolean>()
   const sidePanelOptions = new Map<number, { path?: string; enabled?: boolean }>()
   const sidePanelOpenCalls: Array<{ tabId?: number; windowId?: number }> = []
+  const sidePanelCloseCalls: Array<{ tabId?: number; windowId?: number }> = []
+  const globalSidePanelWindows = new Set<number>()
 
   function connect(connectInfo?: chrome.runtime.ConnectInfo): chrome.runtime.Port {
     const name = connectInfo?.name ?? ''
@@ -196,7 +198,12 @@ function installFakeChrome(initialTabs: chrome.tabs.Tab[]) {
             const specific = sidePanelOptions.get(options.tabId)
             if (specific && (specific.enabled === false || !specific.path)) throw new Error(`No active side panel for tabId: ${options.tabId}`)
           }
+          if (typeof options.windowId === 'number') globalSidePanelWindows.add(options.windowId)
           sidePanelOpenCalls.push({ ...options })
+        },
+        async close(options: { tabId?: number; windowId?: number }) {
+          sidePanelCloseCalls.push({ ...options })
+          if (typeof options.windowId === 'number') globalSidePanelWindows.delete(options.windowId)
         },
       },
       storage: {
@@ -233,6 +240,8 @@ function installFakeChrome(initialTabs: chrome.tabs.Tab[]) {
     sidePanelEnabled,
     sidePanelOptions,
     sidePanelOpenCalls,
+    sidePanelCloseCalls,
+    globalSidePanelWindows,
     restore() {
       if (previousChrome) Object.defineProperty(globalThis, 'chrome', previousChrome)
       else delete (globalThis as { chrome?: unknown }).chrome
@@ -273,6 +282,62 @@ describe('background-owned Chrome state', () => {
 
     expect(result.settings.find((setting) => setting.id === 'core')?.enabled).toBe(false)
     expect(updates.at(-1)?.settings.find((setting) => setting.id === 'core')?.enabled).toBe(false)
+  })
+
+  it('keeps the last healthy snapshot through one transient bridge regression and recovers without a control toggle', async () => {
+    const fakeChrome = installFakeChrome([
+      { id: 1, windowId: 10, active: true, url: 'https://chatgpt.com/c/example' } as chrome.tabs.Tab,
+    ])
+    const healthy: ControlPlaneSnapshot = {
+      ...makeSnapshot(),
+      settings: [
+        ...makeSnapshot().settings,
+        { id: 'tunnel', label: 'ChatGPT Secure Tunnel', kind: 'status', state: 'error', message: 'Tunnel setup is incomplete.' },
+      ],
+    }
+    const degraded: ControlPlaneSnapshot = {
+      ...makeSnapshot(),
+      connection: { state: 'unavailable', message: 'Error when communicating with the native messaging host.' },
+      capabilities: {
+        understand: { enabled: false, available: false },
+        code: { enabled: false, available: false },
+        command: { enabled: false, available: false },
+      },
+      dependencies: {
+        serena: { state: 'unavailable', command: 'serena' },
+        tunnelClient: { state: 'unavailable', command: 'tunnel-client' },
+      },
+      settings: [{ id: 'core', label: 'Agent Helm Service', kind: 'toggle', state: 'unavailable', enabled: false }],
+    }
+    let calls = 0
+    const mutable = createMutableService(healthy)
+    mutable.service.getSnapshot = async () => {
+      calls += 1
+      if (calls === 2) return structuredClone(degraded)
+      return structuredClone(healthy)
+    }
+    const dispose = installBackgroundHandlers(mutable.service)
+    cleanups.push(dispose, fakeChrome.restore)
+    await flushBackground()
+
+    const surface = new BackgroundAgentHelmService()
+    const updates: Array<{ snapshot: ControlPlaneSnapshot | null; error: string | null }> = []
+    const unsubscribe = surface.subscribeSnapshot((update) => updates.push(update))
+    cleanups.push(unsubscribe)
+
+    fakeChrome.alarm()
+    await flushBackground()
+    expect(calls).toBe(2)
+    expect(updates.at(-1)?.error).toBe('Error when communicating with the native messaging host.')
+    expect(updates.at(-1)?.snapshot?.capabilities.code).toEqual({ enabled: true, available: true })
+    expect(updates.at(-1)?.snapshot?.dependencies.tunnelClient.state).toBe('ready')
+
+    await new Promise((resolve) => setTimeout(resolve, 550))
+    await flushBackground()
+    expect(calls).toBeGreaterThanOrEqual(3)
+    expect(updates.at(-1)?.error).toBeNull()
+    expect(updates.at(-1)?.snapshot?.capabilities.code).toEqual({ enabled: true, available: true })
+    expect(updates.at(-1)?.snapshot?.dependencies.tunnelClient.state).toBe('ready')
   })
 
   it('shares one backend timeline poll across Work Details subscribers and releases it only after the last surface disconnects', async () => {
@@ -427,6 +492,30 @@ describe('background-owned Chrome state', () => {
     await flushBackground()
 
     expect(updates.at(-1)?.settings.find((setting) => setting.id === 'core')?.enabled).toBe(false)
+  })
+
+  it('clears an already-open global panel when a ChatGPT tab enters scoped mode', async () => {
+    const fakeChrome = installFakeChrome([
+      { id: 1, windowId: 10, active: false, url: 'https://chatgpt.com/c/example' } as chrome.tabs.Tab,
+      { id: 2, windowId: 10, active: true, url: 'https://example.com/' } as chrome.tabs.Tab,
+    ])
+    const dispose = installBackgroundHandlers(createMutableService().service)
+    cleanups.push(dispose, fakeChrome.restore)
+    await flushBackground()
+
+    const browser = new ChromeBrowserCapabilities()
+    await browser.openSidePanel()
+    expect(fakeChrome.globalSidePanelWindows.has(10)).toBe(true)
+
+    fakeChrome.activate(1)
+    await flushBackground()
+    await browser.openSidePanel()
+
+    expect(fakeChrome.sidePanelOpenCalls).toEqual([{ windowId: 10 }, { tabId: 1 }])
+    expect(fakeChrome.sidePanelCloseCalls).toContainEqual({ windowId: 10 })
+    expect(fakeChrome.globalSidePanelWindows.has(10)).toBe(false)
+    expect(fakeChrome.sidePanelEnabled.get(1)).toBe(true)
+    expect(fakeChrome.sidePanelEnabled.get(2)).toBe(false)
   })
 
   it('keeps a ChatGPT-opened panel scoped to its source tab and restores that tab without converting the mode', async () => {

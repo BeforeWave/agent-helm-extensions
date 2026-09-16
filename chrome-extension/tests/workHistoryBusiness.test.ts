@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { normalizeWorkHistorySession, normalizeWorkHistoryTimelinePresentation } from '@beforewave/agent-helm-ui-contract'
-import { createWorkHistorySessionDetailModel, createWorkHistorySessionListModel } from '../src/models/workHistory'
+import { createWorkHistoryIntentActivityScopes, createWorkHistorySessionDetailModel, createWorkHistorySessionListModel, filterWorkHistoryTimelineByIntentScope, groupWorkHistorySummariesByConversation, mergeWorkHistoryConversationDetail } from '../src/models/workHistory'
+import type { WorkHistoryDetail, WorkHistorySummary } from '../src/models/controlPlane'
 
 function session(value: Record<string, unknown>) {
   const normalized = normalizeWorkHistorySession(value)
@@ -45,6 +46,161 @@ describe('Chrome Work History business components', () => {
     ])
     expect(model.items.map((item) => item.id)).toEqual(['context-b'])
     expect(model.selectedId).toBe('context-b')
+  })
+
+  it('groups work sessions that belong to the same ChatGPT conversation', () => {
+    const works: WorkHistorySummary[] = [
+      { id: 'old-worktree', title: 'Older task', workspaceId: 'workspace-a', lastActivityAt: '2026-09-15T10:00:00.000Z', eventCount: 2, chatCount: 1, delegationCount: 1, chatUrls: ['https://chatgpt.com/c/shared'], workIds: ['old-worktree'] },
+      { id: 'new-worktree', title: 'Latest task', workspaceId: 'workspace-a', lastActivityAt: '2026-09-16T10:00:00.000Z', eventCount: 3, chatCount: 1, delegationCount: 0, chatUrls: ['https://chatgpt.com/c/shared'], workIds: ['new-worktree'] },
+      { id: 'other-conversation', title: 'Other', workspaceId: 'workspace-a', lastActivityAt: '2026-09-14T10:00:00.000Z', eventCount: 4, chatCount: 1, delegationCount: 0, chatUrls: ['https://chatgpt.com/c/other'], workIds: ['other-conversation'] },
+    ]
+
+    const grouped = groupWorkHistorySummariesByConversation(works)
+
+    expect(grouped).toHaveLength(2)
+    expect(grouped[0]).toMatchObject({
+      id: 'new-worktree',
+      title: 'Latest task',
+      eventCount: 5,
+      chatCount: 1,
+      delegationCount: 1,
+      workIds: ['new-worktree', 'old-worktree'],
+      chatUrls: ['https://chatgpt.com/c/shared'],
+    })
+    expect(grouped[1]?.id).toBe('other-conversation')
+  })
+
+  it('merges grouped conversation detail without losing member-session timeline data', () => {
+    const summary: WorkHistorySummary = {
+      id: 'new-worktree',
+      title: 'Latest task',
+      lastActivityAt: '2026-09-16T10:00:00.000Z',
+      eventCount: 2,
+      chatCount: 1,
+      delegationCount: 0,
+      chatUrls: ['https://chatgpt.com/c/shared'],
+      workIds: ['new-worktree', 'old-worktree'],
+    }
+    const detail = (id: string, timestamp: string, timelineId: string): WorkHistoryDetail => ({
+      id,
+      title: id,
+      lastActivityAt: timestamp,
+      eventCount: 1,
+      chatCount: 1,
+      delegationCount: 0,
+      chatUrls: ['https://chatgpt.com/c/shared'],
+      workIds: [id],
+      createdAt: timestamp,
+      boundIntents: [],
+      timeline: [{ id: timelineId, sequence: 1, timestamp, actor: 'chatgpt', presentation: { title: { kind: 'text', text: timelineId }, details: [] } }],
+    })
+
+    const merged = mergeWorkHistoryConversationDetail(summary, [
+      detail('new-worktree', '2026-09-16T10:00:00.000Z', 'same-local-id'),
+      detail('old-worktree', '2026-09-15T10:00:00.000Z', 'same-local-id'),
+    ])
+
+    expect(merged.id).toBe('new-worktree')
+    expect(merged.chatCount).toBe(1)
+    expect(merged.timeline.map((item) => item.id)).toEqual(['old-worktree:same-local-id', 'new-worktree:same-local-id'])
+    expect(merged.timeline.map((item) => item.sequence)).toEqual([1, 2])
+  })
+
+  it('assigns activity to the intent that was active from bind until the next bind', () => {
+    const detail: WorkHistoryDetail = {
+      id: 'session-intents',
+      title: 'Conversation',
+      createdAt: '2026-09-16T10:00:00.000Z',
+      lastActivityAt: '2026-09-16T10:12:00.000Z',
+      eventCount: 5,
+      chatCount: 1,
+      delegationCount: 0,
+      originIntent: { message: 'Intent A', task: 'A' },
+      boundIntents: [
+        { intent: { message: 'Intent C', task: 'C' }, boundAt: '2026-09-16T10:10:00.000Z' },
+        { intent: { message: 'Intent B', task: 'B' }, boundAt: '2026-09-16T10:05:00.000Z' },
+      ],
+      chatUrls: ['https://chatgpt.com/c/shared'],
+      timeline: [
+        { id: 'before', workId: 'session-intents', sequence: 1, timestamp: '2026-09-16T09:59:59.000Z', actor: 'chatgpt', presentation: { title: { kind: 'text', text: 'before' }, details: [] } },
+        { id: 'a', workId: 'session-intents', sequence: 2, timestamp: '2026-09-16T10:01:00.000Z', actor: 'chatgpt', presentation: { title: { kind: 'text', text: 'a' }, details: [] } },
+        { id: 'b-start', workId: 'session-intents', sequence: 3, timestamp: '2026-09-16T10:05:00.000Z', actor: 'chatgpt', presentation: { title: { kind: 'text', text: 'b' }, details: [] } },
+        { id: 'b', workId: 'session-intents', sequence: 4, timestamp: '2026-09-16T10:09:59.000Z', actor: 'chatgpt', presentation: { title: { kind: 'text', text: 'b2' }, details: [] } },
+        { id: 'c-start', workId: 'session-intents', sequence: 5, timestamp: '2026-09-16T10:10:00.000Z', actor: 'chatgpt', presentation: { title: { kind: 'text', text: 'c' }, details: [] } },
+      ],
+    }
+    const scopes = createWorkHistoryIntentActivityScopes([detail])
+    expect(scopes.map((scope) => scope.intent.message)).toEqual(['Intent C', 'Intent B', 'Intent A'])
+    const byIntent = Object.fromEntries(scopes.map((scope) => [scope.intent.message, filterWorkHistoryTimelineByIntentScope(detail.timeline, scope).map((item) => item.id)]))
+    expect(byIntent).toEqual({
+      'Intent A': ['a'],
+      'Intent B': ['b-start', 'b'],
+      'Intent C': ['c-start'],
+    })
+    expect(Object.values(byIntent).flat()).not.toContain('before')
+  })
+
+  it('keeps one logical intent when the same intent is rebound only because the conversation moved to another work session', () => {
+    const detail = (id: string, createdAt: string, intent: string, events: Array<[string, string]>): WorkHistoryDetail => ({
+      id,
+      title: 'Conversation',
+      createdAt,
+      lastActivityAt: events.at(-1)?.[1] ?? createdAt,
+      eventCount: events.length,
+      chatCount: 1,
+      delegationCount: 0,
+      originIntent: { message: intent, task: intent },
+      boundIntents: [],
+      chatUrls: ['https://chatgpt.com/c/shared'],
+      timeline: events.map(([eventId, timestamp], index) => ({
+        id: eventId, workId: id, sequence: index + 1, timestamp, actor: 'chatgpt',
+        presentation: { title: { kind: 'text', text: eventId }, details: [] },
+      })),
+    })
+    const first = detail('work-a', '2026-09-16T10:00:00.000Z', 'Intent A', [['a1', '2026-09-16T10:01:00.000Z']])
+    const second = detail('work-b', '2026-09-16T10:03:00.000Z', 'Intent A', [['a2', '2026-09-16T10:04:00.000Z']])
+    second.boundIntents = [{ intent: { message: 'Intent B', task: 'Intent B' }, boundAt: '2026-09-16T10:05:00.000Z' }]
+    second.timeline.push({ id: 'b1', workId: 'work-b', sequence: 2, timestamp: '2026-09-16T10:06:00.000Z', actor: 'chatgpt', presentation: { title: { kind: 'text', text: 'b1' }, details: [] } })
+
+    const scopes = createWorkHistoryIntentActivityScopes([first, second])
+    expect(scopes.map((scope) => scope.intent.message)).toEqual(['Intent B', 'Intent A'])
+    const timeline = [...first.timeline, ...second.timeline].sort((left, right) => left.timestamp.localeCompare(right.timestamp))
+    expect(filterWorkHistoryTimelineByIntentScope(timeline, scopes[1]!).map((item) => item.id)).toEqual(['a1', 'a2'])
+    expect(filterWorkHistoryTimelineByIntentScope(timeline, scopes[0]!).map((item) => item.id)).toEqual(['b1'])
+  })
+
+  it('does not infer intent order when two different intent binds share the same timestamp', () => {
+    const detail: WorkHistoryDetail = {
+      id: 'ambiguous-intents',
+      title: 'Conversation',
+      createdAt: '2026-09-16T10:00:00.000Z',
+      lastActivityAt: '2026-09-16T10:01:00.000Z',
+      eventCount: 0, chatCount: 1, delegationCount: 0,
+      originIntent: { message: 'Intent A', task: 'A' },
+      boundIntents: [
+        { intent: { message: 'Intent B', task: 'B' }, boundAt: '2026-09-16T10:05:00.000Z' },
+        { intent: { message: 'Intent C', task: 'C' }, boundAt: '2026-09-16T10:05:00.000Z' },
+      ],
+      chatUrls: [], timeline: [],
+    }
+    expect(createWorkHistoryIntentActivityScopes([detail])).toEqual([])
+  })
+
+  it('does not create intent activity scopes when a bind boundary is not reliable', () => {
+    const detail: WorkHistoryDetail = {
+      id: 'session-invalid-intent-boundary',
+      title: 'Conversation',
+      createdAt: '2026-09-16T10:00:00.000Z',
+      lastActivityAt: '2026-09-16T10:12:00.000Z',
+      eventCount: 1,
+      chatCount: 1,
+      delegationCount: 0,
+      originIntent: { message: 'Intent A', task: 'A' },
+      boundIntents: [{ intent: { message: 'Intent B', task: 'B' }, boundAt: 'not-a-time' }],
+      chatUrls: [],
+      timeline: [],
+    }
+    expect(createWorkHistoryIntentActivityScopes([detail])).toEqual([])
   })
 
   it('uses Core timeline presentation even when raw fields imply another title', () => {
