@@ -1,6 +1,5 @@
 import type { AgentHelmServiceAdapter, ControlPlaneStateUpdate } from '../../models/adapters'
 import { deriveExtensionConnectionPresentation, type ControlPlaneSnapshot, type ExtensionConnectionPresentationState } from '../../models/controlPlane'
-import { pageContextFromTab } from '../../services/pageContext'
 import { workIdFromNotificationId } from '../../services/notifications'
 import { createChromeBackgroundService } from '../../client/factories'
 import {
@@ -12,13 +11,8 @@ import {
 } from './BackgroundAgentHelmService'
 
 const ACTION_STATUS_ALARM = 'agent-helm-action-status'
-const PANEL_STATE_PREFIX = 'agentHelmSidePanelMode:'
 const SIDE_PANEL_PATH = 'sidepanel.html'
 const SNAPSHOT_RECOVERY_DELAY_MS = 500
-
-interface PanelModeState {
-  mode: 'chatgpt-only' | 'global'
-}
 
 function actionStatusColor(state: ExtensionConnectionPresentationState): string {
   if (state === 'connected') return '#2563eb'
@@ -75,72 +69,16 @@ async function updateBrowserActionStatus(snapshot: ControlPlaneSnapshot | null, 
   } })
 }
 
-function panelStateKey(windowId: number): string {
-  return `${PANEL_STATE_PREFIX}${windowId}`
-}
-
-async function readPanelMode(windowId: number): Promise<PanelModeState | null> {
-  const key = panelStateKey(windowId)
-  const stored = await chrome.storage.session.get(key)
-  const value = stored[key] as { mode?: unknown } | undefined
-  if (value?.mode === 'global') return { mode: 'global' }
-  // Migrate the previous source-tab-scoped state to the intended ChatGPT-site policy.
-  if (value?.mode === 'chatgpt-only' || value?.mode === 'chatgpt-scoped') return { mode: 'chatgpt-only' }
-  return null
-}
-
-async function writePanelMode(windowId: number, state: PanelModeState): Promise<void> {
-  await chrome.storage.session.set({ [panelStateKey(windowId)]: state })
-}
-
-function panelEnabledForTab(state: PanelModeState, tab: chrome.tabs.Tab): boolean {
-  return state.mode === 'global' || pageContextFromTab(tab).kind !== 'other'
-}
-
-async function setTabPanelForMode(state: PanelModeState, tab: chrome.tabs.Tab): Promise<void> {
-  if (typeof tab.id !== 'number') return
-  if (state.mode === 'global') return
-  if (panelEnabledForTab(state, tab)) {
-    // Chrome 131+ treats window-scoped and tab-scoped panels as independent entries.
-    // A tab-scoped enabled flag alone does not suppress an already-open global panel,
-    // so ChatGPT-only mode must use real contextual entries and disable the global one.
-    await chrome.sidePanel.setOptions({ tabId: tab.id, path: SIDE_PANEL_PATH, enabled: true })
-    return
-  }
-  await chrome.sidePanel.setOptions({ tabId: tab.id, enabled: false })
-}
-
-async function applyPanelMode(windowId: number, state: PanelModeState): Promise<void> {
-  await chrome.sidePanel.setOptions({
-    path: SIDE_PANEL_PATH,
-    enabled: state.mode === 'global',
-  })
-  if (state.mode === 'global') return
-
-  const tabs = await chrome.tabs.query({ windowId })
-  for (const tab of tabs) await setTabPanelForMode(state, tab)
-}
-
-async function syncPanelForTab(tab: chrome.tabs.Tab): Promise<void> {
-  if (typeof tab.id !== 'number' || typeof tab.windowId !== 'number') return
-  const state = await readPanelMode(tab.windowId)
-  if (!state) return
-  await setTabPanelForMode(state, tab)
-}
-
 async function prepareSidePanelForCurrentTab(): Promise<chrome.sidePanel.OpenOptions> {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
-  if (!tab || typeof tab.id !== 'number' || typeof tab.windowId !== 'number') throw new Error('No active browser tab')
-  const state: PanelModeState = pageContextFromTab(tab).kind !== 'other'
-    ? { mode: 'chatgpt-only' }
-    : { mode: 'global' }
-  await applyPanelMode(tab.windowId, state)
-  // Persist only after the Chrome entries are configured. Disabling an older global
-  // entry can emit onClosed; that event must not erase the new policy before it opens.
-  await writePanelMode(tab.windowId, state)
-  return state.mode === 'chatgpt-only'
-    ? { tabId: tab.id }
-    : { windowId: tab.windowId }
+  if (!tab || typeof tab.id !== 'number') throw new Error('No active browser tab')
+
+  // Agent Helm is deliberately tab-scoped. The manifest default path is kept so
+  // Chrome can register the extension as a side-panel provider, but the global
+  // entry stays disabled; each user-opened tab receives its own contextual entry.
+  await chrome.sidePanel.setOptions({ enabled: false })
+  await chrome.sidePanel.setOptions({ tabId: tab.id, path: SIDE_PANEL_PATH, enabled: true })
+  return { tabId: tab.id }
 }
 
 export function installBackgroundHandlers(service: AgentHelmServiceAdapter = createChromeBackgroundService()): () => void {
@@ -361,37 +299,6 @@ export function installBackgroundHandlers(service: AgentHelmServiceAdapter = cre
     if (alarm.name === ACTION_STATUS_ALARM) void runSnapshotOperation(refreshAuthoritativeSnapshot).catch(() => {})
   }
 
-  const onTabActivated = ({ tabId }: chrome.tabs.OnActivatedInfo) => {
-    void chrome.tabs.get(tabId).then(syncPanelForTab).catch(() => {})
-  }
-
-  const onTabUpdated = (_tabId: number, changeInfo: chrome.tabs.OnUpdatedInfo, tab: chrome.tabs.Tab) => {
-    if (!changeInfo.url && changeInfo.status !== 'complete') return
-    void syncPanelForTab(tab).catch(() => {})
-  }
-
-  const onWindowRemoved = (windowId: number) => {
-    void chrome.storage.session.remove(panelStateKey(windowId)).catch(() => {})
-  }
-
-  const onSidePanelClosed = (info: chrome.sidePanel.PanelClosedInfo) => {
-    void (async () => {
-      const panelMode = await readPanelMode(info.windowId)
-      if (!panelMode) return
-      if (panelMode.mode === 'chatgpt-only') {
-        // ChatGPT-only mode uses contextual panels. A global close can still arrive
-        // while switching away from an older global-mode entry; it is not a close of
-        // the active contextual panel and must not clear persistence.
-        if (typeof info.tabId !== 'number') return
-        const [activeTab] = await chrome.tabs.query({ active: true, windowId: info.windowId })
-        // Chrome closes/hides a site-restricted contextual panel when the active tab
-        // becomes ineligible. That transition must not be mistaken for a user close.
-        if (activeTab && !panelEnabledForTab(panelMode, activeTab)) return
-      }
-      await chrome.storage.session.remove(panelStateKey(info.windowId))
-    })().catch(() => {})
-  }
-
   const onRuntimeMessage = (
     message: unknown,
     _sender: chrome.runtime.MessageSender,
@@ -423,11 +330,8 @@ export function installBackgroundHandlers(service: AgentHelmServiceAdapter = cre
   chrome.alarms.onAlarm.addListener(onAlarm)
   chrome.runtime.onMessage.addListener(onRuntimeMessage)
   chrome.runtime.onConnect?.addListener(onTimelinePort)
-  chrome.tabs.onActivated.addListener(onTabActivated)
-  chrome.tabs.onUpdated.addListener(onTabUpdated)
-  chrome.windows.onRemoved.addListener(onWindowRemoved)
-  chrome.sidePanel.onClosed?.addListener(onSidePanelClosed)
   chrome.alarms.create(ACTION_STATUS_ALARM, { periodInMinutes: 1 })
+  void chrome.sidePanel.setOptions({ enabled: false }).catch(() => {})
   void runSnapshotOperation(refreshAuthoritativeSnapshot).catch(() => {})
 
   return () => {
@@ -436,10 +340,6 @@ export function installBackgroundHandlers(service: AgentHelmServiceAdapter = cre
     chrome.runtime.onMessage.removeListener(onRuntimeMessage)
     chrome.runtime.onConnect?.removeListener(onTimelinePort)
     for (const [workId, stream] of [...timelineStreams]) releaseTimelineStream(workId, stream)
-    chrome.tabs.onActivated.removeListener(onTabActivated)
-    chrome.tabs.onUpdated.removeListener(onTabUpdated)
-    chrome.windows.onRemoved.removeListener(onWindowRemoved)
-    chrome.sidePanel.onClosed?.removeListener(onSidePanelClosed)
     clearSnapshotRecovery()
   }
 }
