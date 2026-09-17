@@ -1,0 +1,4 @@
+.standalone-toolbar { max-width: 1320px; }
+.standalone-page-context { display: inline-flex; align-items: center; gap: 6px; }
+.standalone-page-context input { width: min(420px, 42vw); min-height: 32px; padding: 5px 9px; border: 1px solid #d6d8dd; border-radius: 7px; background: #fff; color: inherit; }
+.standalone-empty { width: min(920px, 100%); padding: 32px; border: 1px solid #d6d8dd; border-radius: 12px; background: #fff; color: #747983; text-align: center; }

@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import extensionManifest from '../package.json'
-import { agentHelmInstallerSourceForRelease, agentHelmMacosInstallerFilename } from '@beforewave/agent-helm-ui-contract'
+import { agentHelmInstallerSourceForRelease, agentHelmMacosInstallerFilename } from '../src/ui-contract'
 import { isSupportedLocalDeepLink } from '../src/services/deepLink'
 import { NativeMessagingTransport } from '../src/adapters/chrome/NativeMessagingTransport'
 import { ChromeBrowserCapabilities } from '../src/adapters/chrome/ChromeBrowserCapabilities'

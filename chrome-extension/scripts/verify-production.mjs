@@ -56,10 +56,12 @@ while (stack.length) {
 }
 for (const file of files) {
   check(!file.startsWith('preview/'), `production Chrome artifact leaks preview code: ${file}`)
+  check(!file.startsWith('standalone/'), `production Chrome artifact leaks standalone development code: ${file}`)
   check(!file.startsWith('tests/'), `production Chrome artifact leaks tests: ${file}`)
   check(!file.endsWith('.map'), `production Chrome artifact leaks sourcemap: ${file}`)
   check(!file.endsWith('.ts') && !file.endsWith('.tsx'), `production Chrome artifact leaks source file: ${file}`)
   check(file !== 'vite.preview.config.ts', 'production Chrome artifact leaks preview config')
+  check(file !== 'vite.standalone.config.ts', 'production Chrome artifact leaks standalone config')
 }
 
 console.log('Chrome Extension package production verification OK')

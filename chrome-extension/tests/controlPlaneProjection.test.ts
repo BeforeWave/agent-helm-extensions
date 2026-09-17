@@ -47,6 +47,7 @@ describe('native Core snapshot projection', () => {
   }
   const summaries = [{
     id: 'session-1',
+    memberSessionIds: ['session-1', 'session-older'],
     originIntent: { message: 'Implement feature', task: 'Wire native Core status' },
     boundIntents: [],
     chatUrls: ['https://chatgpt.com/c/session-1'],
@@ -97,7 +98,7 @@ describe('native Core snapshot projection', () => {
       delegationCount: 1,
       chatCount: 1,
       chatUrls: ['https://chatgpt.com/c/session-1'],
-      workIds: ['session-1'],
+      workIds: ['session-1', 'session-older'],
     })
   })
 

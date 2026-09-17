@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeWorkHistorySession, normalizeWorkHistoryTimelinePresentation } from '@beforewave/agent-helm-ui-contract'
-import { createWorkHistoryIntentActivityScopes, createWorkHistorySessionDetailModel, createWorkHistorySessionListModel, filterWorkHistoryTimelineByIntentScope, groupWorkHistorySummariesByConversation, mergeWorkHistoryConversationDetail } from '../src/models/workHistory'
+import { normalizeWorkHistorySession, normalizeWorkHistoryTimelinePresentation } from '../src/ui-contract'
+import { createWorkHistoryIntentActivityScopes, createWorkHistorySessionDetailModel, createWorkHistorySessionListModel, filterWorkHistoryTimelineByIntentScope, mergeWorkHistoryConversationDetail } from '../src/models/workHistory'
 import type { WorkHistoryDetail, WorkHistorySummary } from '../src/models/controlPlane'
 
 function session(value: Record<string, unknown>) {
@@ -46,28 +46,6 @@ describe('Chrome Work History business components', () => {
     ])
     expect(model.items.map((item) => item.id)).toEqual(['context-b'])
     expect(model.selectedId).toBe('context-b')
-  })
-
-  it('groups work sessions that belong to the same ChatGPT conversation', () => {
-    const works: WorkHistorySummary[] = [
-      { id: 'old-worktree', title: 'Older task', workspaceId: 'workspace-a', lastActivityAt: '2026-09-15T10:00:00.000Z', eventCount: 2, chatCount: 1, delegationCount: 1, chatUrls: ['https://chatgpt.com/c/shared'], workIds: ['old-worktree'] },
-      { id: 'new-worktree', title: 'Latest task', workspaceId: 'workspace-a', lastActivityAt: '2026-09-16T10:00:00.000Z', eventCount: 3, chatCount: 1, delegationCount: 0, chatUrls: ['https://chatgpt.com/c/shared'], workIds: ['new-worktree'] },
-      { id: 'other-conversation', title: 'Other', workspaceId: 'workspace-a', lastActivityAt: '2026-09-14T10:00:00.000Z', eventCount: 4, chatCount: 1, delegationCount: 0, chatUrls: ['https://chatgpt.com/c/other'], workIds: ['other-conversation'] },
-    ]
-
-    const grouped = groupWorkHistorySummariesByConversation(works)
-
-    expect(grouped).toHaveLength(2)
-    expect(grouped[0]).toMatchObject({
-      id: 'new-worktree',
-      title: 'Latest task',
-      eventCount: 5,
-      chatCount: 1,
-      delegationCount: 1,
-      workIds: ['new-worktree', 'old-worktree'],
-      chatUrls: ['https://chatgpt.com/c/shared'],
-    })
-    expect(grouped[1]?.id).toBe('other-conversation')
   })
 
   it('merges grouped conversation detail without losing member-session timeline data', () => {
