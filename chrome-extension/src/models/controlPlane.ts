@@ -1,4 +1,4 @@
-import { deriveHelmConnectionHealth, type WorkHistoryTimelinePresentation } from '@beforewave/agent-helm-ui-contract'
+import { deriveHelmConnectionHealth, type WorkHistoryTimelinePresentation } from '../ui-contract'
 
 export type ConnectionState = 'connected' | 'unavailable' | 'install-required' | 'error'
 export type RuntimeState = 'running' | 'ready' | 'available' | 'stopped' | 'unavailable' | 'error'

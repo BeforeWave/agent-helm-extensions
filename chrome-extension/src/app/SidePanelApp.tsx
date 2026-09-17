@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { createWorkHistoryListModel, groupWorkHistorySummariesByConversation, mergeGroupedWorkHistoryTimeline, mergeWorkHistoryConversationDetail, mergeWorkHistoryTimeline } from '../models/workHistory'
+import { createWorkHistoryListModel, mergeGroupedWorkHistoryTimeline, mergeWorkHistoryConversationDetail, mergeWorkHistoryTimeline } from '../models/workHistory'
 import type { BrowserControlPlaneClient } from '../client/BrowserControlPlaneClient'
 import { WorkDetail } from '../components/WorkDetail'
 import { WorkHistoryList } from '../components/WorkHistoryList'
@@ -98,9 +98,8 @@ export function SidePanelApp({ client }: { client: BrowserControlPlaneClient }) 
     workspaces: snapshot?.workspaces.map((workspace) => ({ id: workspace.id, title: workspaceDisplayTitle(workspace) })) ?? [],
     autoSelectFirst: false,
   }), [snapshot, workspaceFilter, selectedWorkId])
-  const groupedWorks = useMemo(() => groupWorkHistorySummariesByConversation(snapshot?.works ?? []), [snapshot])
-  const visibleWorks = useMemo(() => groupWorkHistorySummariesByConversation(workHistory.items), [workHistory.items])
-  const selectedWork = selectedWorkId ? groupedWorks.find((work) => work.id === selectedWorkId) : undefined
+  const visibleWorks = workHistory.items
+  const selectedWork = selectedWorkId ? (snapshot?.works ?? []).find((work) => work.id === selectedWorkId) : undefined
   const selectedWorkMembersKey = selectedWork?.workIds?.join('\u0000') ?? selectedWorkId ?? ''
   const workHistoryLoading = (loading && !snapshot) || !currentConversation.resolved
 

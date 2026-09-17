@@ -17,5 +17,5 @@
     "jsx": "react-jsx",
     "types": ["chrome", "vite/client", "vitest/globals", "node"]
   },
-  "include": ["entrypoints", "src", "preview", "tests", "wxt.config.ts", "vite.preview.config.ts", ".wxt/wxt.d.ts"]
+  "include": ["entrypoints", "src", "preview", "standalone", "tests", "wxt.config.ts", "vite.preview.config.ts", "vite.standalone.config.ts", ".wxt/wxt.d.ts"]
 }

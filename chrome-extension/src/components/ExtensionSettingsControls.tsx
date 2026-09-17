@@ -5,7 +5,7 @@ import { Switch } from '../components/Switch'
 import { runtimeStateLabel, t } from '../locale'
 import type { CapabilityKey, DependencyName } from '../models/controlPlane'
 import extensionManifest from '../../package.json'
-import { agentHelmInstallerSourceForRelease, agentHelmMacosInstallerFilename, tunnelOnboardingSource, tunnelSetupCanSubmit, type TunnelSetupValues } from '@beforewave/agent-helm-ui-contract'
+import { agentHelmInstallerSourceForRelease, agentHelmMacosInstallerFilename, tunnelOnboardingSource, tunnelSetupCanSubmit, type TunnelSetupValues } from '../ui-contract'
 
 import { Accordion } from '../components/Accordion'
 

@@ -1,4 +1,4 @@
-import type { TunnelSetupValues } from '@beforewave/agent-helm-ui-contract'
+import type { TunnelSetupValues } from '../ui-contract'
 import type {
   CapabilityKey,
   ControlPlaneSnapshot,

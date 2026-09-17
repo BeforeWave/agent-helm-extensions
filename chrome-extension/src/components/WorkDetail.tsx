@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { WorkHistoryPresentationDetail, WorkHistoryPresentationLabel, WorkHistoryPresentationTitle } from '@beforewave/agent-helm-ui-contract'
+import { IntentRow, WorkHistoryActivityTimeline, WorkHistoryIntentDetail, WorkHistoryIntentList, type WorkHistoryActivityRowData } from '../__shared/work-history-ui/index'
+import type { WorkHistoryPresentationLabel } from '../ui-contract'
 import { createWorkHistoryIntentActivityScopes, filterWorkHistoryTimeline, filterWorkHistoryTimelineByIntentScope, type WorkHistoryActivityFilter } from '../models/workHistory'
 import type { BrowserControlPlaneClient } from '../client/BrowserControlPlaneClient'
 import { t } from '../locale'
@@ -35,10 +36,6 @@ function presentationLabel(label: WorkHistoryPresentationLabel): string {
   return t('sessionActionEdit')
 }
 
-function presentationTitle(title: WorkHistoryPresentationTitle): string {
-  return title.kind === 'text' ? title.text : presentationLabel(title.label)
-}
-
 function statusLabel(status: string): string {
   if (status === 'success') return t('sessionStatusSuccess')
   if (status === 'error') return t('sessionStatusError')
@@ -50,68 +47,44 @@ function statusLabel(status: string): string {
   return t('sessionStatusUnknown')
 }
 
-function presentationDetail(detail: WorkHistoryPresentationDetail): string {
-  if (detail.kind === 'duration') return `${detail.durationMs} ms`
-  if (detail.kind === 'subagent-session') return `${t('sessionSubagentId')}: ${detail.id}`
-  if (detail.kind === 'status') return statusLabel(detail.text)
-  return detail.text
-}
-
 type ActivityFilter = WorkHistoryActivityFilter
 
 export function filterTimelineItems(timeline: WorkTimelineItem[], filter: ActivityFilter): WorkTimelineItem[] {
   return filterWorkHistoryTimeline(timeline, filter)
 }
 
-function ContextCard({ intent, role, boundAt, onOpen }: { intent: WorkConversationIntent; role: string; boundAt?: string; onOpen?: () => void }) {
-  return (
-    <article
-      className={onOpen ? 'context-card context-card--clickable' : 'context-card'}
-      {...(onOpen ? { role: 'button', tabIndex: 0 } : {})}
-      onClick={onOpen}
-      onKeyDown={onOpen ? (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onOpen() } } : undefined}
-    >
-      <div className="context-card__head">
-        <span className="context-card__role">{role}</span>
-        <span className="context-card__message">{intent.message}</span>
-      </div>
-      {boundAt ? <div className="context-card__meta"><span>{t('sessionBoundAt')} · {formatTimestamp(boundAt)}</span></div> : null}
-      <details className="context-card__task" onClick={(event) => event.stopPropagation()}>
-        <summary>{t('sessionTaskContext')}</summary>
-        <div>{intent.task}</div>
-      </details>
-    </article>
-  )
+function ContextCard({ intent, onOpen }: { intent: WorkConversationIntent; onOpen?: () => void }) {
+  return <IntentRow intent={intent} {...(onOpen ? { onOpen } : {})} />
 }
 
 function ActivityTimeline({ timeline, timelineError }: { timeline: WorkTimelineItem[]; timelineError?: string }) {
-  const [activityFilter, setActivityFilter] = useState<ActivityFilter>('all')
-  const visibleTimeline = filterTimelineItems(timeline, activityFilter)
-  return (
-    <section className="timeline-section">
-      <nav className="timeline-filters" aria-label={t('extensionActivityType')}>
-        <button type="button" className="timeline-filter" data-active={activityFilter === 'all'} onClick={() => setActivityFilter('all')}>{t('sessionAll')}</button>
-        <button type="button" className="timeline-filter" data-active={activityFilter === 'chatgpt'} onClick={() => setActivityFilter('chatgpt')}>{t('sessionChatGPT')}</button>
-        <button type="button" className="timeline-filter" data-active={activityFilter === 'subagent'} onClick={() => setActivityFilter('subagent')}>{t('sessionSubagent')}</button>
-      </nav>
-      {timelineError ? <div className="error-banner">{timelineError}</div> : null}
-      <div className="timeline">
-        {visibleTimeline.length ? visibleTimeline.map((item) => (
-          <article className="timeline-item" key={item.id}>
-            <time>{formatTimestamp(item.timestamp)}</time>
-            <div><span className="actor-badge">{item.actorName || (item.actor === 'subagent' ? t('sessionSubagent') : t('sessionChatGPT'))}</span></div>
-            <div className="timeline-item__content">
-              <strong>{presentationTitle(item.presentation.title)}</strong>
-              {item.presentation.primary ? <div>{item.presentation.primary}</div> : null}
-              <div className="timeline-item__secondary">
-                {item.presentation.details.map((detail, detailIndex) => <span key={detailIndex}>{presentationDetail(detail)}</span>)}
-              </div>
-            </div>
-          </article>
-        )) : <div className="empty-state">{t('extensionNoActivity')}</div>}
-      </div>
-    </section>
-  )
+  const items: WorkHistoryActivityRowData[] = timeline.map((item) => ({
+    id: item.id,
+    timestamp: item.timestamp,
+    sequence: item.sequence,
+    actor: item.actor,
+    actorLabel: item.actorName || (item.actor === 'subagent' ? t('sessionSubagent') : t('sessionChatGPT')),
+    presentation: item.presentation,
+  }))
+  return <>
+    {timelineError ? <div className="error-banner">{timelineError}</div> : null}
+    <WorkHistoryActivityTimeline
+      items={items}
+      labels={{
+        all: t('sessionAll'),
+        chatgpt: t('sessionChatGPT'),
+        subagent: t('sessionSubagent'),
+        expand: t('extensionExpand'),
+        collapse: t('extensionCollapse'),
+        empty: t('extensionNoActivity'),
+        filterAriaLabel: t('extensionActivityType'),
+        subagentSessionId: t('sessionSubagentId'),
+        presentationLabel,
+        statusLabel,
+      }}
+      formatTimestamp={formatTimestamp}
+    />
+  </>
 }
 
 interface WorkDetailProps {
@@ -172,6 +145,7 @@ export function WorkDetail({
 
   const openBoundConversation = linkedHere && currentConversation ? currentConversation : detail.chatUrls.at(-1)
   const linkedConversationCount = detail.chatUrls.length
+  const intentCount = intentScopes.length || detail.boundIntents.length + (detail.originIntent ? 1 : 0)
 
   if (selectedIntent) {
     const intentTimeline = filterWorkHistoryTimelineByIntentScope(detail.timeline, selectedIntent)
@@ -182,11 +156,7 @@ export function WorkDetail({
             <button type="button" className="icon-button detail-back" onClick={() => setSelectedIntentId(null)}><BackIcon /><span>{t('extensionConversation')}</span></button>
           </div>
         </header>
-        <section className="detail-summary detail-summary--intent">
-          <h1>{selectedIntent.intent.message}</h1>
-          <div className="detail-times">{selectedIntent.kind === 'bound' ? t('sessionBoundAt') : t('sessionCreated')} · {formatTimestamp(selectedIntent.startedAt)}</div>
-          <div className="intent-detail-task">{selectedIntent.intent.task}</div>
-        </section>
+        <WorkHistoryIntentDetail intent={selectedIntent.intent} timestamp={selectedIntent.startedAt} formatTimestamp={formatTimestamp} />
         <ActivityTimeline key={selectedIntent.id} timeline={intentTimeline} timelineError={selectedIntent.timelineError} />
       </div>
     )
@@ -220,8 +190,9 @@ export function WorkDetail({
 
       <section className="detail-summary">
         <h1>{detail.title}</h1>
-        <div className="detail-times">{t('sessionCreated')} · {formatTimestamp(detail.createdAt)} · {t('sessionUpdated')} · {formatTimestamp(detail.lastActivityAt)}</div>
         <dl className="detail-facts">
+          <div><dt>{t('sessionCreated')}</dt><dd><time>{formatTimestamp(detail.createdAt)}</time></dd></div>
+          <div><dt>{t('sessionUpdated')}</dt><dd><time>{formatTimestamp(detail.lastActivityAt)}</time></dd></div>
           <div><dt>{t('sessionWorkspace')}</dt><dd>{detail.workspaceTitle || t('sessionUnassignedWorkspace')}</dd></div>
           <div>
             <dt>{t('extensionAgentRuntime')}</dt>
@@ -230,7 +201,6 @@ export function WorkDetail({
               {detail.localDeepLink ? <button type="button" className="secondary-button compact-action button-with-icon" onClick={() => void client.openLocalDeepLink(detail.localDeepLink!)}>{t('extensionOpenLocalApp')} <ExternalIcon /></button> : null}
             </dd>
           </div>
-          <div><dt>{t('extensionActivity')}</dt><dd>{t('extensionActivitiesCount', { count: detail.eventCount })} · {t('extensionConversationsCount', { count: detail.chatCount })}</dd></div>
           <div className="detail-chatgpt-fact">
             <dt>ChatGPT</dt>
             <dd className="detail-chatgpt-value">
@@ -247,29 +217,31 @@ export function WorkDetail({
               </span>
             </dd>
           </div>
+          <div className="detail-intents-fact">
+            <dt>{t('extensionIntents')}</dt>
+            <dd className="detail-intents-value">
+              <span>{t('extensionIntentsCount', { count: intentCount })}</span>
+              <button type="button" className="secondary-button compact-action detail-intents-toggle" aria-expanded={contextExpanded} onClick={() => setContextExpanded((value) => !value)}>
+                <span>{contextExpanded ? t('extensionCollapse') : t('extensionExpand')}</span>
+                <span className="detail-intents-toggle__chevron" aria-hidden="true">{contextExpanded ? '▴' : '▾'}</span>
+              </button>
+            </dd>
+          </div>
         </dl>
       </section>
 
-      <section className="detail-section" data-expanded={contextExpanded}>
-        <button type="button" className="detail-section__toggle" aria-expanded={contextExpanded} onClick={() => setContextExpanded((value) => !value)}>
-          <span>{t('sessionWorkContext')}</span>
-          <span className="detail-section__chevron" aria-hidden="true">{contextExpanded ? '▾' : '▸'}</span>
-        </button>
-        {contextExpanded ? <>
-          {intentScopes.length ? intentScopes.map((scope) => (
-            <ContextCard
-              key={scope.id}
-              intent={scope.intent}
-              boundAt={scope.boundAt}
-              role={scope.kind === 'origin' ? t('sessionOriginChat') : t('sessionBoundChats')}
-              onOpen={() => setSelectedIntentId(scope.id)}
-            />
-          )) : <>
-            {detail.originIntent ? <ContextCard intent={detail.originIntent} role={t('sessionOriginChat')} /> : detail.boundIntents.length ? null : <div className="empty-state">{t('sessionUnboundContext')}</div>}
-            {detail.boundIntents.map((entry, index) => <ContextCard key={`${entry.boundAt}:${index}`} intent={entry.intent} boundAt={entry.boundAt} role={`${t('sessionBoundChats')} ${detail.boundIntents.length - index}`} />)}
-          </>}
-        </> : null}
-      </section>
+      {contextExpanded ? <WorkHistoryIntentList>
+        {intentScopes.length ? intentScopes.map((scope) => (
+          <ContextCard
+            key={scope.id}
+            intent={scope.intent}
+            onOpen={() => setSelectedIntentId(scope.id)}
+          />
+        )) : <>
+          {detail.originIntent ? <ContextCard intent={detail.originIntent} /> : detail.boundIntents.length ? null : <div className="empty-state">{t('sessionUnboundContext')}</div>}
+          {detail.boundIntents.map((entry, index) => <ContextCard key={`${entry.boundAt}:${index}`} intent={entry.intent} />)}
+        </>}
+      </WorkHistoryIntentList> : null}
 
       <ActivityTimeline key="conversation" timeline={detail.timeline} timelineError={detail.timelineError} />
     </div>

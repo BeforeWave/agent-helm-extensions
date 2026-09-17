@@ -1,5 +1,6 @@
-import type { WorkHistoryBoundConversationIntent, WorkHistoryConversationIntent, WorkHistorySession, WorkHistoryWorkspaceReference } from '@beforewave/agent-helm-ui-contract'
-import type { WorkHistoryDetail, WorkHistorySummary, WorkIntentActivityScope, WorkTimelineItem } from './controlPlane'
+import type { WorkHistoryBoundConversationIntent, WorkHistoryConversationIntent, WorkHistorySession, WorkHistoryWorkspaceReference } from '../ui-contract'
+import { createWorkHistoryIntentActivityScopes, filterWorkHistoryActivityItems, filterWorkHistoryTimelineByIntentScope, mergeGroupedWorkHistoryTimeline, type WorkHistoryActivityFilter } from '../__shared/work-history-ui/model'
+import type { WorkHistoryDetail, WorkHistorySummary, WorkTimelineItem } from './controlPlane'
 
 export const WORK_HISTORY_ALL_WORKSPACES = 'all' as const
 export const WORK_HISTORY_PAGE_SIZE = 10
@@ -66,19 +67,6 @@ function sortWorkHistoryBoundIntentsNewestFirst(entries: readonly WorkHistoryBou
     .map(({ entry }) => entry)
 }
 
-function sortWorkHistoryTimelineNewestFirst<T extends { timestamp: string; sequence?: number }>(timeline: readonly T[]): T[] {
-  return timeline
-    .map((item, index) => ({ item, index }))
-    .sort((left, right) => {
-      const byTime = workHistoryTimestamp(right.item.timestamp) - workHistoryTimestamp(left.item.timestamp)
-      if (byTime) return byTime
-      const leftSequence = typeof left.item.sequence === 'number' ? left.item.sequence : left.index
-      const rightSequence = typeof right.item.sequence === 'number' ? right.item.sequence : right.index
-      return rightSequence - leftSequence
-    })
-    .map(({ item }) => item)
-}
-
 export function mergeWorkHistoryTimeline<T extends { id: string; timestamp: string; sequence?: number }>(
   current: readonly T[],
   updates: readonly T[],
@@ -102,154 +90,8 @@ function uniqueTextValues(values: readonly (string | undefined)[]): string[] {
   return [...new Set(values.filter((value): value is string => Boolean(value)))]
 }
 
-export function groupWorkHistorySummariesByConversation(items: readonly WorkHistorySummary[]): WorkHistorySummary[] {
-  if (items.length < 2) return items.map((item) => ({
-    ...item,
-    chatUrls: uniqueTextValues(item.chatUrls ?? []),
-    workIds: uniqueTextValues(item.workIds?.length ? item.workIds : [item.id]),
-  }))
+export { createWorkHistoryIntentActivityScopes, filterWorkHistoryTimelineByIntentScope, mergeGroupedWorkHistoryTimeline }
 
-  const parent = items.map((_, index) => index)
-  const find = (index: number): number => {
-    let current = index
-    while (parent[current] !== current) current = parent[current]!
-    while (parent[index] !== index) {
-      const next = parent[index]!
-      parent[index] = current
-      index = next
-    }
-    return current
-  }
-  const union = (left: number, right: number) => {
-    const leftRoot = find(left)
-    const rightRoot = find(right)
-    if (leftRoot !== rightRoot) parent[rightRoot] = leftRoot
-  }
-  const urlOwner = new Map<string, number>()
-  items.forEach((item, index) => {
-    for (const url of uniqueTextValues(item.chatUrls ?? [])) {
-      const owner = urlOwner.get(url)
-      if (owner === undefined) urlOwner.set(url, index)
-      else union(index, owner)
-    }
-  })
-
-  const groups = new Map<number, WorkHistorySummary[]>()
-  items.forEach((item, index) => {
-    const root = find(index)
-    const group = groups.get(root) ?? []
-    group.push(item)
-    groups.set(root, group)
-  })
-
-  return [...groups.values()].map((members) => {
-    const ordered = [...members].sort((left, right) =>
-      workHistoryTimestamp(right.lastActivityAt) - workHistoryTimestamp(left.lastActivityAt)
-      || right.id.localeCompare(left.id))
-    const primary = ordered[0]!
-    const chatUrls = uniqueTextValues(ordered.flatMap((item) => item.chatUrls ?? []))
-    const workIds = uniqueTextValues(ordered.flatMap((item) => item.workIds?.length ? item.workIds : [item.id]))
-    return {
-      ...primary,
-      chatUrls,
-      workIds,
-      eventCount: ordered.reduce((count, item) => count + item.eventCount, 0),
-      delegationCount: ordered.reduce((count, item) => count + item.delegationCount, 0),
-      chatCount: Math.max(chatUrls.length, ...ordered.map((item) => item.chatCount)),
-    }
-  }).sort((left, right) =>
-    workHistoryTimestamp(right.lastActivityAt) - workHistoryTimestamp(left.lastActivityAt)
-    || right.id.localeCompare(left.id))
-}
-
-export function mergeGroupedWorkHistoryTimeline(
-  current: readonly WorkTimelineItem[],
-  workId: string,
-  updates: readonly WorkTimelineItem[],
-): WorkTimelineItem[] {
-  const byId = new Map(current.map((item) => [item.id, item]))
-  for (const update of updates) {
-    const id = `${workId}:${update.id}`
-    byId.set(id, { ...update, id, workId })
-  }
-  return [...byId.values()]
-    .sort((left, right) => workHistoryTimestamp(left.timestamp) - workHistoryTimestamp(right.timestamp) || left.id.localeCompare(right.id))
-    .map((item, index) => ({ ...item, sequence: index + 1 }))
-}
-
-export function createWorkHistoryIntentActivityScopes(details: readonly WorkHistoryDetail[]): WorkIntentActivityScope[] {
-  const boundaries: Array<{
-    kind: 'origin' | 'bound'
-    intent: WorkHistoryConversationIntent
-    startedAt: string
-    timelineError?: string
-  }> = []
-
-  for (const detail of details) {
-    if (!detail.originIntent && !detail.boundIntents.length) continue
-    if (detail.originIntent) {
-      if (!Number.isFinite(Date.parse(detail.createdAt))) return []
-      boundaries.push({
-        kind: 'origin',
-        intent: detail.originIntent,
-        startedAt: detail.createdAt,
-        ...(detail.timelineError ? { timelineError: detail.timelineError } : {}),
-      })
-    }
-    for (const entry of detail.boundIntents) {
-      if (!Number.isFinite(Date.parse(entry.boundAt))) return []
-      boundaries.push({
-        kind: 'bound',
-        intent: entry.intent,
-        startedAt: entry.boundAt,
-        ...(detail.timelineError ? { timelineError: detail.timelineError } : {}),
-      })
-    }
-  }
-  if (!boundaries.length) return []
-
-  boundaries.sort((left, right) => Date.parse(left.startedAt) - Date.parse(right.startedAt))
-  const sameIntent = (left: WorkHistoryConversationIntent, right: WorkHistoryConversationIntent) =>
-    left.message === right.message && left.task === right.task
-
-  const logicalBoundaries: typeof boundaries = []
-  for (const boundary of boundaries) {
-    const previous = logicalBoundaries.at(-1)
-    if (previous && previous.startedAt === boundary.startedAt && !sameIntent(previous.intent, boundary.intent)) return []
-    if (previous && sameIntent(previous.intent, boundary.intent)) {
-      if (!previous.timelineError && boundary.timelineError) previous.timelineError = boundary.timelineError
-      continue
-    }
-    logicalBoundaries.push({ ...boundary })
-  }
-
-  return logicalBoundaries.map((entry, index) => {
-    const next = logicalBoundaries[index + 1]
-    const kind: 'origin' | 'bound' = index === 0 ? entry.kind : 'bound'
-    return {
-      id: `intent:${entry.startedAt}:${index}`,
-      intent: entry.intent,
-      kind,
-      startedAt: entry.startedAt,
-      ...(next ? { endedAt: next.startedAt } : {}),
-      ...(kind === 'bound' ? { boundAt: entry.startedAt } : {}),
-      ...(entry.timelineError ? { timelineError: entry.timelineError } : {}),
-    }
-  }).sort((left, right) => Date.parse(right.startedAt) - Date.parse(left.startedAt) || right.id.localeCompare(left.id))
-}
-
-export function filterWorkHistoryTimelineByIntentScope(
-  timeline: readonly WorkTimelineItem[],
-  scope: WorkIntentActivityScope,
-): WorkTimelineItem[] {
-  const startedAt = Date.parse(scope.startedAt)
-  const endedAt = scope.endedAt ? Date.parse(scope.endedAt) : Number.POSITIVE_INFINITY
-  if (!Number.isFinite(startedAt) || (scope.endedAt && !Number.isFinite(endedAt))) return []
-  return timeline.filter((item) => {
-    const timestamp = Date.parse(item.timestamp)
-    return Number.isFinite(timestamp) && timestamp >= startedAt && timestamp < endedAt
-  })
-}
 
 export function mergeWorkHistoryConversationDetail(
   summary: WorkHistorySummary,
@@ -431,9 +273,8 @@ export function createWorkHistorySessionDetailModel(session: WorkHistorySession)
   }
 }
 
-export type WorkHistoryActivityFilter = 'all' | 'chatgpt' | 'subagent'
+export type { WorkHistoryActivityFilter }
 
 export function filterWorkHistoryTimeline<T extends { actor: string; timestamp: string; sequence?: number }>(timeline: readonly T[], filter: WorkHistoryActivityFilter): T[] {
-  const filtered = filter === 'all' ? timeline : timeline.filter((item) => item.actor === filter)
-  return sortWorkHistoryTimelineNewestFirst(filtered)
+  return filterWorkHistoryActivityItems(timeline, filter)
 }

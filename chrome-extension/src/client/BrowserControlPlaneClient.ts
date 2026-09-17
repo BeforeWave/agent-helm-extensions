@@ -1,4 +1,4 @@
-import type { TunnelSetupValues } from '@beforewave/agent-helm-ui-contract'
+import type { TunnelSetupValues } from '../ui-contract'
 import type { AgentHelmServiceAdapter, BrowserCapabilities, BrowserSettingsSection } from '../models/adapters'
 import type { CapabilityKey, DependencyName, PageContext, WorkNotification, WorkTimelineItem } from '../models/controlPlane'
 

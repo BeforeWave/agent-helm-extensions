@@ -1,13 +1,11 @@
 import { t } from '../../locale'
-import { normalizeWorkHistorySession, normalizeWorkHistoryTimelinePresentation, type TunnelSetupValues } from '@beforewave/agent-helm-ui-contract'
+import { normalizeWorkHistorySession, normalizeWorkHistoryTimelinePresentation, type TunnelSetupValues } from '../../ui-contract'
 import { createWorkHistorySessionDetailModel, createWorkHistorySessionListItem, WORK_HISTORY_PAGE_SIZE } from '../../models/workHistory'
 import type { AgentHelmServiceAdapter } from '../../models/adapters'
 import type { CapabilityKey, ControlPlaneSnapshot, DependencyName, PageContext, WorkHistoryDetail } from '../../models/controlPlane'
-import { NativeMessagingTransport } from './NativeMessagingTransport'
+import type { NativeControlTransport, NativeDaemonProbe } from './NativeMessagingTransport'
 
 import type { DependencyProjection, RuntimeState, WorkHistoryPage, WorkHistorySummary, WorkTimelineItem, WorkTimelineUpdateBatch, WorkspaceProjection } from '../../models/controlPlane'
-
-import type { NativeDaemonProbe } from './NativeMessagingTransport'
 
 import { normalizeChatGPTConversationUrl } from '../../services/pageContext'
 
@@ -65,7 +63,7 @@ function projectWorkSummary(value: unknown): WorkHistorySummary | undefined {
     chatCount: item.chatCount,
     delegationCount: item.delegationCount,
     chatUrls: [...session.chatUrls],
-    workIds: [item.id],
+    workIds: session.memberSessionIds?.length ? [...session.memberSessionIds] : [item.id],
     ...(session.agentLabel ? { agentLabel: session.agentLabel } : {}),
     ...(session.runtimeLabel ? { runtimeLabel: session.runtimeLabel } : {}),
   }
@@ -298,7 +296,7 @@ function unavailableSnapshot(
 }
 
 export class NativeAgentHelmService implements AgentHelmServiceAdapter {
-  constructor(private readonly transport: NativeMessagingTransport) {}
+  constructor(private readonly transport: NativeControlTransport) {}
 
   async getSnapshot(): Promise<ControlPlaneSnapshot> {
     let health: Record<string, unknown>

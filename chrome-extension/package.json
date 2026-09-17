@@ -6,17 +6,19 @@
   "scripts": {
     "dev:web": "vite --config vite.preview.config.ts",
     "dev:extension": "wxt",
-    "build": "wxt prepare && wxt build",
+    "build": "npm run prepare:shared && wxt prepare && wxt build",
     "zip": "wxt zip",
-    "typecheck": "wxt prepare && tsc --noEmit",
-    "test": "vitest run",
+    "typecheck": "npm run prepare:shared && wxt prepare && tsc --noEmit",
+    "test": "npm run prepare:shared && vitest run",
     "verify:production": "npm run build && node scripts/verify-production.mjs",
-    "verify": "npm run typecheck && npm test && npm run verify:production"
+    "verify": "npm run typecheck && npm test && npm run verify:production",
+    "build:standalone": "npm run prepare:shared && vite build --config vite.standalone.config.ts",
+    "standalone": "node scripts/dev-standalone.mjs",
+    "prepare:shared": "node scripts/prepare-shared.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "@beforewave/agent-helm-ui-contract": "0.1.5"
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@types/chrome": "latest",

@@ -9,7 +9,13 @@ export interface NativeDaemonProbe {
   error?: string
 }
 
-export class NativeMessagingTransport {
+export interface NativeControlTransport {
+  request<T>(method: string, params?: unknown[], timeoutMs?: number | null): Promise<T>
+  daemonProbe(): Promise<NativeDaemonProbe>
+  probe(): Promise<ConnectionStatus>
+}
+
+export class NativeMessagingTransport implements NativeControlTransport {
   #port: chrome.runtime.Port | undefined
   readonly #pending = new Map<string, {
     resolve(value: unknown): void

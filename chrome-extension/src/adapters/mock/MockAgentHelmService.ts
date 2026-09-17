@@ -1,4 +1,4 @@
-import { tunnelSetupLinks, type TunnelSetupValues } from '@beforewave/agent-helm-ui-contract'
+import { tunnelSetupLinks, type TunnelSetupValues } from '../../ui-contract'
 import type { AgentHelmServiceAdapter } from '../../models/adapters'
 import { t } from '../../locale'
 import type {

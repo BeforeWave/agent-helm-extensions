@@ -1,35 +1,26 @@
+import { WorkHistoryRow } from '../__shared/work-history-ui/index'
 import { t } from '../locale'
 import type { WorkHistorySummary } from '../models/controlPlane'
 import { formatTimestamp } from '../services/time'
 
-function sharesConversation(left: WorkHistorySummary, right: WorkHistorySummary): boolean {
-  const leftIds = new Set(left.workIds?.length ? left.workIds : [left.id])
-  const rightIds = right.workIds?.length ? right.workIds : [right.id]
-  if (rightIds.some((id) => leftIds.has(id))) return true
-  const leftUrls = new Set(left.chatUrls ?? [])
-  return (right.chatUrls ?? []).some((url) => leftUrls.has(url))
-}
-
 export function partitionWorkHistoryByCurrentConversation(works: WorkHistorySummary[], currentConversationWork: WorkHistorySummary | null | undefined) {
   if (!currentConversationWork) return { current: null, recent: works }
-  const current = works.find((work) => sharesConversation(work, currentConversationWork)) ?? currentConversationWork
+  const current = works.find((work) => work.id === currentConversationWork.id) ?? currentConversationWork
   return {
     current,
-    recent: works.filter((work) => !sharesConversation(work, currentConversationWork)),
+    recent: works.filter((work) => work.id !== currentConversationWork.id),
   }
 }
 
 function WorkCard({ work, onSelect, current = false }: { work: WorkHistorySummary; onSelect: (workId: string) => void; current?: boolean }) {
-  return (
-    <button type="button" className={current ? 'work-card work-card--current' : 'work-card'} onClick={() => onSelect(work.id)}>
-      <div className="work-card__title">{work.title}</div>
-      <div className="work-card__time">{t('sessionRecentActivity')} · {formatTimestamp(work.lastActivityAt)}</div>
-      <div className="work-card__meta">
-        <span>{t('extensionConversationsCount', { count: work.chatCount })}</span>
-        {current ? <span className="work-card__current-badge">{t('extensionConversationLinked')}</span> : null}
-      </div>
-    </button>
-  )
+  return <WorkHistoryRow
+    item={{ id: work.id, title: work.title, timestamp: work.lastActivityAt, linked: Boolean(work.chatUrls?.length) }}
+    current={current}
+    linkedLabel={t('extensionConversationLinked')}
+    unlinkedLabel={t('extensionConversationUnlinked')}
+    formatTimestamp={formatTimestamp}
+    onSelect={onSelect}
+  />
 }
 
 export function WorkHistoryList({
