@@ -159,12 +159,16 @@ describe('browser service helpers', () => {
     }
   })
 
-  it('disconnects a hung Native Messaging port and rejects every pending request on that port', async () => {
+  it('isolates a hung Native Messaging request without disconnecting or rejecting another request on the shared port', async () => {
     let disconnectCalls = 0
+    let onMessage: ((message: unknown) => void) | undefined
+    let sharedRequestId = ''
     const port = {
-      onMessage: { addListener() {} },
+      onMessage: { addListener(listener: (message: unknown) => void) { onMessage = listener } },
       onDisconnect: { addListener() {} },
-      postMessage() {},
+      postMessage(message: { id: string; method: string }) {
+        if (message.method === 'shared-port-request') sharedRequestId = message.id
+      },
       disconnect() { disconnectCalls += 1 },
     } as unknown as chrome.runtime.Port
     const previousChrome = Object.getOwnPropertyDescriptor(globalThis, 'chrome')
@@ -175,10 +179,11 @@ describe('browser service helpers', () => {
     try {
       const transport = new NativeMessagingTransport('com.beforewave.agent_helm')
       const timedOut = transport.request('hung-request', [], 5)
-      const sharedPortRequest = transport.request('shared-port-request', [], 1_000)
+      const sharedPortRequest = transport.request<string>('shared-port-request', [], 1_000)
       await expect(timedOut).rejects.toThrow('timed out after 5ms')
-      await expect(sharedPortRequest).rejects.toThrow('timed out after 5ms: hung-request')
-      expect(disconnectCalls).toBe(1)
+      onMessage?.({ id: sharedRequestId, result: 'ok' })
+      await expect(sharedPortRequest).resolves.toBe('ok')
+      expect(disconnectCalls).toBe(0)
     } finally {
       if (previousChrome) Object.defineProperty(globalThis, 'chrome', previousChrome)
       else delete (globalThis as { chrome?: unknown }).chrome

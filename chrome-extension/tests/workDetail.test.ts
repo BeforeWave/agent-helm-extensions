@@ -288,6 +288,7 @@ describe('Work History section labels', () => {
     expect(shared).toContain('.helm-work-history-ui .work-card__meta{min-width:0;margin-top:5px;display:flex;align-items:center;justify-content:space-between;')
     expect(shared).toContain('.helm-work-history-ui.work-card{box-sizing:border-box;width:100%;padding:12px 20px;border:0;border-bottom:1px solid var(--helm-border);')
     expect(shared).toContain('.helm-work-history-ui.work-card:last-child{border-bottom:0}')
+    expect(styles).toContain('.sidepanel-section-heading { min-height: 50px;')
     expect(styles).toContain('.work-history-region { min-width: 0; min-height: 0; flex: 1; overflow-y: auto; overflow-x: hidden; padding: 8px 0; }')
     expect(shared).toContain('.helm-work-history-ui.work-card:hover,.helm-work-history-ui.work-card:focus-visible{background:var(--helm-hover);outline:none}')
     expect(shared).not.toContain('.work-card--current{border-color:')
