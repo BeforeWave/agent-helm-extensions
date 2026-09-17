@@ -55,6 +55,10 @@ describe('Work History current-conversation loading', () => {
     expect(sidePanelSource).toContain("Boolean(coreRunning && workHistoryState.loaded && currentConversationUrl && !loadedCurrentConversationWork)")
     expect(sidePanelSource).toContain("(coreRunning && !workHistoryState.loaded)")
     expect(sidePanelSource).toContain('aria-busy={workHistoryLoading}')
+    expect(sidePanelSource).toContain('client.subscribeWorkHistoryChanges(refreshFirstPage)')
+    expect(sidePanelSource).toContain('mergeWorkHistorySessionPage(current.works, page.works)')
+    expect(sidePanelSource).toContain('nextCursor: page.nextCursor ? String(works.length) : undefined')
+    expect(sidePanelSource).not.toContain('WORK_HISTORY_LIST_REFRESH_MS')
 
     const loadingBranch = sidePanelSource.indexOf('{workHistoryLoading')
     const list = sidePanelSource.indexOf('<WorkHistoryList')

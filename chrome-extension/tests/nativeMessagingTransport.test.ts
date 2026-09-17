@@ -112,3 +112,31 @@ it('reassembles a response split into bounded Native Messaging chunks', async ()
     else delete (globalThis as { chrome?: unknown }).chrome
   }
 })
+
+it('delivers unsolicited Work History invalidation without a request id', () => {
+  let onMessage: ((message: unknown) => void) | undefined
+  const port = {
+    onMessage: { addListener(listener: (message: unknown) => void) { onMessage = listener } },
+    onDisconnect: { addListener() {} },
+    postMessage() {},
+    disconnect() {},
+  } as unknown as chrome.runtime.Port
+  const previousChrome = Object.getOwnPropertyDescriptor(globalThis, 'chrome')
+  Object.defineProperty(globalThis, 'chrome', {
+    configurable: true,
+    value: { runtime: { connectNative: () => port } },
+  })
+  try {
+    const transport = new NativeMessagingTransport('com.beforewave.agent_helm')
+    let changes = 0
+    const unsubscribe = transport.subscribeWorkHistoryChanges(() => { changes += 1 })
+    onMessage?.({ event: 'work-history-changed' })
+    expect(changes).toBe(1)
+    unsubscribe()
+    onMessage?.({ event: 'work-history-changed' })
+    expect(changes).toBe(1)
+  } finally {
+    if (previousChrome) Object.defineProperty(globalThis, 'chrome', previousChrome)
+    else delete (globalThis as { chrome?: unknown }).chrome
+  }
+})
