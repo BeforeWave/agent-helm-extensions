@@ -43,13 +43,11 @@ test('installer runtime bundle contains the full resolved dependency closure', (
     const coreStage = join(fixture, 'core-stage')
     const depA = join(nodeModules, 'dep-a')
     const depB = join(nodeModules, 'dep-b')
-    const ui = join(coreStage, 'node_modules', '@beforewave', 'agent-helm-ui-contract')
-    for (const directory of [coreSource, coreStage, depA, depB, ui]) mkdirSync(directory, { recursive: true })
-    writeFileSync(join(coreSource, 'package.json'), JSON.stringify({ name: '@beforewave/agent-helm', version: coreVersion, dependencies: { 'dep-a': '1.0.0', '@beforewave/agent-helm-ui-contract': manifest.version } }))
-    writeFileSync(join(coreStage, 'package.json'), JSON.stringify({ name: '@beforewave/agent-helm', version: coreVersion, dependencies: { 'dep-a': '1.0.0', '@beforewave/agent-helm-ui-contract': manifest.version } }))
+    for (const directory of [coreSource, coreStage, depA, depB]) mkdirSync(directory, { recursive: true })
+    writeFileSync(join(coreSource, 'package.json'), JSON.stringify({ name: '@beforewave/agent-helm', version: coreVersion, dependencies: { 'dep-a': '1.0.0' } }))
+    writeFileSync(join(coreStage, 'package.json'), JSON.stringify({ name: '@beforewave/agent-helm', version: coreVersion, dependencies: { 'dep-a': '1.0.0' } }))
     mkdirSync(join(coreStage, 'lib'), { recursive: true })
     writeFileSync(join(coreStage, 'lib', 'cli.js'), 'console.log("fixture")\n')
-    writeFileSync(join(ui, 'package.json'), JSON.stringify({ name: '@beforewave/agent-helm-ui-contract', version: coreVersion }))
     writeFileSync(join(depA, 'package.json'), JSON.stringify({ name: 'dep-a', version: '1.0.0', dependencies: { 'dep-b': '1.0.0' } }))
     writeFileSync(join(depB, 'package.json'), JSON.stringify({ name: 'dep-b', version: '1.0.0' }))
 
@@ -60,7 +58,7 @@ test('installer runtime bundle contains the full resolved dependency closure', (
     assert.match(listing, /node_modules\/@beforewave\/agent-helm\/lib\/cli\.js/)
     assert.match(listing, /node_modules\/dep-a\/package\.json/)
     assert.match(listing, /node_modules\/dep-b\/package\.json/)
-    assert.match(listing, /node_modules\/@beforewave\/agent-helm\/node_modules\/@beforewave\/agent-helm-ui-contract\/package\.json/)
+    assert.doesNotMatch(listing, /agent-helm-ui-contract/)
   } finally {
     rmSync(fixture, { recursive: true, force: true })
   }

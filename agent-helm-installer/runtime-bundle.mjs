@@ -38,7 +38,7 @@ export function buildInstallerRuntimeBundle({
   nodeModulesRoot,
   output,
   packageName = '@beforewave/agent-helm',
-  bundledWorkspacePackages = ['@beforewave/agent-helm-ui-contract'],
+  bundledWorkspacePackages = [],
 }) {
   const resolvedNodeModulesRoot = realpathSync(nodeModulesRoot)
   const staging = mkdtempSync(join(process.env.TMPDIR || tmpdir(), 'agent-helm-installer-runtime-'))
