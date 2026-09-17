@@ -17,8 +17,7 @@ const SIDE_PANEL_PATH = 'sidepanel.html'
 const SNAPSHOT_RECOVERY_DELAY_MS = 500
 
 interface PanelModeState {
-  mode: 'chatgpt-scoped' | 'global'
-  sourceTabId: number | null
+  mode: 'chatgpt-only' | 'global'
 }
 
 function actionStatusColor(state: ExtensionConnectionPresentationState): string {
@@ -83,11 +82,10 @@ function panelStateKey(windowId: number): string {
 async function readPanelMode(windowId: number): Promise<PanelModeState | null> {
   const key = panelStateKey(windowId)
   const stored = await chrome.storage.session.get(key)
-  const value = stored[key] as Partial<PanelModeState> | undefined
-  if (value?.mode === 'global') return { mode: 'global', sourceTabId: null }
-  if (value?.mode === 'chatgpt-scoped' && typeof value.sourceTabId === 'number') {
-    return { mode: 'chatgpt-scoped', sourceTabId: value.sourceTabId }
-  }
+  const value = stored[key] as { mode?: unknown } | undefined
+  if (value?.mode === 'global') return { mode: 'global' }
+  // Migrate the previous source-tab-scoped state to the intended ChatGPT-site policy.
+  if (value?.mode === 'chatgpt-only' || value?.mode === 'chatgpt-scoped') return { mode: 'chatgpt-only' }
   return null
 }
 
@@ -95,41 +93,37 @@ async function writePanelMode(windowId: number, state: PanelModeState): Promise<
   await chrome.storage.session.set({ [panelStateKey(windowId)]: state })
 }
 
+function panelEnabledForTab(state: PanelModeState, tab: chrome.tabs.Tab): boolean {
+  return state.mode === 'global' || pageContextFromTab(tab).kind !== 'other'
+}
+
 async function applyPanelMode(windowId: number, state: PanelModeState): Promise<void> {
+  // Keep one global panel instance. Per-tab options only control availability; assigning
+  // a path per tab would create distinct tab-specific panel instances.
+  await chrome.sidePanel.setOptions({ path: SIDE_PANEL_PATH, enabled: true })
   const tabs = await chrome.tabs.query({ windowId })
   for (const tab of tabs) {
     if (typeof tab.id !== 'number') continue
-    const enabled = state.mode === 'global' || (tab.id === state.sourceTabId && pageContextFromTab(tab).kind !== 'other')
-    await chrome.sidePanel.setOptions({ tabId: tab.id, ...(enabled ? { path: SIDE_PANEL_PATH } : {}), enabled })
+    await chrome.sidePanel.setOptions({ tabId: tab.id, enabled: panelEnabledForTab(state, tab) })
   }
-}
-
-async function closeGlobalSidePanel(windowId: number): Promise<void> {
-  const sidePanel = chrome.sidePanel as typeof chrome.sidePanel & { close?: (options: { windowId: number }) => Promise<void> }
-  if (typeof sidePanel.close !== 'function') return
-  await sidePanel.close({ windowId }).catch(() => {})
 }
 
 async function syncPanelForTab(tab: chrome.tabs.Tab): Promise<void> {
   if (typeof tab.id !== 'number' || typeof tab.windowId !== 'number') return
   const state = await readPanelMode(tab.windowId)
   if (!state) return
-  const enabled = state.mode === 'global' || (tab.id === state.sourceTabId && pageContextFromTab(tab).kind !== 'other')
-  await chrome.sidePanel.setOptions({ tabId: tab.id, ...(enabled ? { path: SIDE_PANEL_PATH } : {}), enabled })
-  if (state.mode === 'chatgpt-scoped' && !enabled) await closeGlobalSidePanel(tab.windowId)
+  await chrome.sidePanel.setOptions({ tabId: tab.id, enabled: panelEnabledForTab(state, tab) })
 }
 
 async function prepareSidePanelForCurrentTab(): Promise<chrome.sidePanel.OpenOptions> {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
   if (!tab || typeof tab.id !== 'number' || typeof tab.windowId !== 'number') throw new Error('No active browser tab')
-  const chatGptScoped = pageContextFromTab(tab).kind !== 'other'
-  const state: PanelModeState = chatGptScoped
-    ? { mode: 'chatgpt-scoped', sourceTabId: tab.id }
-    : { mode: 'global', sourceTabId: null }
+  const state: PanelModeState = pageContextFromTab(tab).kind !== 'other'
+    ? { mode: 'chatgpt-only' }
+    : { mode: 'global' }
   await writePanelMode(tab.windowId, state)
   await applyPanelMode(tab.windowId, state)
-  if (chatGptScoped) await closeGlobalSidePanel(tab.windowId)
-  return chatGptScoped ? { tabId: tab.id } : { windowId: tab.windowId }
+  return { windowId: tab.windowId }
 }
 
 export function installBackgroundHandlers(service: AgentHelmServiceAdapter = createChromeBackgroundService()): () => void {
@@ -363,6 +357,20 @@ export function installBackgroundHandlers(service: AgentHelmServiceAdapter = cre
     void chrome.storage.session.remove(panelStateKey(windowId)).catch(() => {})
   }
 
+  const onSidePanelClosed = (info: chrome.sidePanel.PanelClosedInfo) => {
+    void (async () => {
+      const panelMode = await readPanelMode(info.windowId)
+      if (!panelMode) return
+      if (panelMode.mode === 'chatgpt-only') {
+        const [activeTab] = await chrome.tabs.query({ active: true, windowId: info.windowId })
+        // Chrome closes/hides a site-restricted panel when the active tab becomes
+        // ineligible. That transition must not be mistaken for a user closing it.
+        if (activeTab && !panelEnabledForTab(panelMode, activeTab)) return
+      }
+      await chrome.storage.session.remove(panelStateKey(info.windowId))
+    })().catch(() => {})
+  }
+
   const onRuntimeMessage = (
     message: unknown,
     _sender: chrome.runtime.MessageSender,
@@ -397,6 +405,7 @@ export function installBackgroundHandlers(service: AgentHelmServiceAdapter = cre
   chrome.tabs.onActivated.addListener(onTabActivated)
   chrome.tabs.onUpdated.addListener(onTabUpdated)
   chrome.windows.onRemoved.addListener(onWindowRemoved)
+  chrome.sidePanel.onClosed?.addListener(onSidePanelClosed)
   chrome.alarms.create(ACTION_STATUS_ALARM, { periodInMinutes: 1 })
   void runSnapshotOperation(refreshAuthoritativeSnapshot).catch(() => {})
 
@@ -409,6 +418,7 @@ export function installBackgroundHandlers(service: AgentHelmServiceAdapter = cre
     chrome.tabs.onActivated.removeListener(onTabActivated)
     chrome.tabs.onUpdated.removeListener(onTabUpdated)
     chrome.windows.onRemoved.removeListener(onWindowRemoved)
+    chrome.sidePanel.onClosed?.removeListener(onSidePanelClosed)
     clearSnapshotRecovery()
   }
 }

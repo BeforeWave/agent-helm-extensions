@@ -15,7 +15,7 @@
   --helm-badge-bg: #f0f0f2;
 }
 * { box-sizing: border-box; }
-html, body, #root { width: 100%; max-width: 100%; margin: 0; min-height: 100%; overflow-x: hidden; }
+html, body, #root { width: 100%; max-width: 100%; margin: 0; overflow-x: hidden; }
 body { min-width: 0; background: #fff; }
 button, select { font: inherit; }
 button { color: inherit; }

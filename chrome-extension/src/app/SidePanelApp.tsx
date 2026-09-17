@@ -5,7 +5,7 @@ import { WorkDetail } from '../components/WorkDetail'
 import { WorkHistoryList } from '../components/WorkHistoryList'
 import { useControlPlaneSnapshot, useCurrentConversationWork, usePageContext } from '../features/useControlPlane'
 import { t } from '../locale'
-import { workspaceDisplayTitle, type WorkHistoryDetail } from '../models/controlPlane'
+import { workspaceDisplayTitle, type WorkHistoryDetail, type WorkHistorySummary } from '../models/controlPlane'
 
 import { CoreSettingControl, ExtensionSettingsControls } from '../components/ExtensionSettingsControls'
 import { ChevronIcon } from '../components/Icons'
@@ -76,7 +76,6 @@ export function SidePanelApp({ client }: { client: BrowserControlPlaneClient }) 
   const { snapshot, setSnapshot, error, setError, loading } = useControlPlaneSnapshot(client)
   const pageContextState = usePageContext(client)
   const pageContext = pageContextState.value
-  const currentConversation = useCurrentConversationWork(client, pageContext, pageContextState.resolved)
   const [workspaceFilter, setWorkspaceFilter] = useState('all')
   const [selectedWorkId, setSelectedWorkId] = useState<string | null>(null)
   const [detail, setDetail] = useState<WorkHistoryDetail | null>(null)
@@ -84,6 +83,13 @@ export function SidePanelApp({ client }: { client: BrowserControlPlaneClient }) 
   const [detailLoading, setDetailLoading] = useState(false)
   const [pendingControl, setPendingControl] = useState<string | null>(null)
   const [loadingMoreWork, setLoadingMoreWork] = useState(false)
+  const [workHistoryState, setWorkHistoryState] = useState<{
+    works: WorkHistorySummary[]
+    nextCursor: string | undefined
+    loading: boolean
+    loaded: boolean
+    error: string | null
+  }>({ works: [], nextCursor: undefined, loading: false, loaded: false, error: null })
   const [agentsInitiallyExpanded, setAgentsInitiallyExpanded] = useState(false)
   const [tunnelInitiallyExpanded, setTunnelInitiallyExpanded] = useState(false)
   const coreIssue = snapshot?.settings.find((setting) => setting.id === 'core')?.message
@@ -91,17 +97,66 @@ export function SidePanelApp({ client }: { client: BrowserControlPlaneClient }) 
   const listScrollRef = useRef<HTMLDivElement>(null)
   const rememberedScrollTop = useRef(0)
 
+  const coreRunning = snapshot?.settings.find((setting) => setting.id === 'core')?.state === 'running'
+  const currentConversationUrl = pageContext?.conversationUrl ?? null
+  const loadedCurrentConversationWork = currentConversationUrl
+    ? workHistoryState.works.find((work) => work.chatUrls?.includes(currentConversationUrl)) ?? null
+    : null
+  const currentConversationLookup = useCurrentConversationWork(
+    client,
+    pageContext,
+    pageContextState.resolved,
+    Boolean(coreRunning && workHistoryState.loaded && currentConversationUrl && !loadedCurrentConversationWork),
+  )
+  const currentConversation = {
+    work: loadedCurrentConversationWork ?? currentConversationLookup.work,
+    resolved: !currentConversationUrl
+      ? pageContextState.resolved
+      : !coreRunning
+        ? true
+        : loadedCurrentConversationWork
+          ? true
+          : workHistoryState.loaded && currentConversationLookup.resolved,
+    refresh: currentConversationLookup.refresh,
+  }
   const workHistory = useMemo(() => createWorkHistoryListModel({
-    items: snapshot?.works ?? [],
+    items: workHistoryState.works,
     workspaceId: workspaceFilter,
     selectedId: selectedWorkId,
     workspaces: snapshot?.workspaces.map((workspace) => ({ id: workspace.id, title: workspaceDisplayTitle(workspace) })) ?? [],
     autoSelectFirst: false,
-  }), [snapshot, workspaceFilter, selectedWorkId])
+  }), [snapshot?.workspaces, workHistoryState.works, workspaceFilter, selectedWorkId])
   const visibleWorks = workHistory.items
-  const selectedWork = selectedWorkId ? (snapshot?.works ?? []).find((work) => work.id === selectedWorkId) : undefined
+  const selectedWork = selectedWorkId ? workHistoryState.works.find((work) => work.id === selectedWorkId) : undefined
   const selectedWorkMembersKey = selectedWork?.workIds?.join('\u0000') ?? selectedWorkId ?? ''
-  const workHistoryLoading = (loading && !snapshot) || !currentConversation.resolved
+  const workHistoryLoading = (loading && !snapshot)
+    || (coreRunning && !workHistoryState.loaded)
+    || (coreRunning && workHistoryState.works.length === 0 && !currentConversation.resolved)
+
+  useEffect(() => {
+    if (!coreRunning) return
+    let cancelled = false
+    setWorkHistoryState((current) => ({ ...current, loading: true, error: null }))
+    void client.getWorkHistoryPage().then((page) => {
+      if (cancelled) return
+      setWorkHistoryState({
+        works: page.works,
+        nextCursor: page.nextCursor,
+        loading: false,
+        loaded: true,
+        error: null,
+      })
+    }).catch((cause) => {
+      if (cancelled) return
+      setWorkHistoryState((current) => ({
+        ...current,
+        loading: false,
+        loaded: true,
+        error: cause instanceof Error ? cause.message : String(cause),
+      }))
+    })
+    return () => { cancelled = true }
+  }, [client, coreRunning])
 
   useEffect(() => {
     let cancelled = false
@@ -176,24 +231,23 @@ export function SidePanelApp({ client }: { client: BrowserControlPlaneClient }) 
   }
 
   const loadMoreWorkHistory = async () => {
-    const cursor = snapshot?.worksNextCursor
-    if (!snapshot || !cursor || loadingMoreWork) return
+    const cursor = workHistoryState.nextCursor
+    if (!cursor || loadingMoreWork) return
     setLoadingMoreWork(true)
     try {
       const page = await client.getWorkHistoryPage(cursor)
-      setSnapshot((current) => {
-        if (!current) return current
+      setWorkHistoryState((current) => {
         const byId = new Map(current.works.map((work) => [work.id, work]))
         for (const work of page.works) byId.set(work.id, work)
         return {
           ...current,
           works: [...byId.values()],
-          ...(page.nextCursor ? { worksNextCursor: page.nextCursor } : { worksNextCursor: undefined }),
+          nextCursor: page.nextCursor,
+          error: null,
         }
       })
-      setError(null)
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause))
+      setWorkHistoryState((current) => ({ ...current, error: cause instanceof Error ? cause.message : String(cause) }))
     } finally {
       setLoadingMoreWork(false)
     }
@@ -333,16 +387,18 @@ export function SidePanelApp({ client }: { client: BrowserControlPlaneClient }) 
       <section className="work-history-region" ref={listScrollRef} aria-busy={workHistoryLoading}>
         {workHistoryLoading
           ? <div className="empty-state">{t('extensionLoadingWorkHistory')}</div>
-          : visibleWorks.length || currentConversation.work
-            ? <WorkHistoryList
-                works={visibleWorks}
-                currentConversationWork={currentConversation.work}
-                onSelect={selectWork}
-                hasMore={Boolean(snapshot?.worksNextCursor)}
-                loadingMore={loadingMoreWork}
-                onLoadMore={() => { void loadMoreWorkHistory() }}
-              />
-            : <div className="empty-state">{t('extensionNoWorkHistory')}</div>}
+          : workHistoryState.error && !visibleWorks.length && !currentConversation.work
+            ? <div className="empty-state">{workHistoryState.error}</div>
+            : visibleWorks.length || currentConversation.work
+              ? <WorkHistoryList
+                  works={visibleWorks}
+                  currentConversationWork={currentConversation.work}
+                  onSelect={selectWork}
+                  hasMore={Boolean(workHistoryState.nextCursor)}
+                  loadingMore={loadingMoreWork}
+                  onLoadMore={() => { void loadMoreWorkHistory() }}
+                />
+              : <div className="empty-state">{t('extensionNoWorkHistory')}</div>}
       </section>
     </main>
   )

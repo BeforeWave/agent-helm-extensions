@@ -69,6 +69,7 @@ export function useCurrentConversationWork(
   client: BrowserControlPlaneClient,
   pageContext: PageContext | null,
   pageContextResolved: boolean,
+  enabled = true,
 ) {
   const currentUrl = pageContext?.conversationUrl ?? null
   const pageContextRef = useRef(pageContext)
@@ -82,8 +83,8 @@ export function useCurrentConversationWork(
 
   useEffect(() => {
     let cancelled = false
-    if (!pageContextResolved) {
-      setLookup({ url: null, work: null, resolved: false })
+    if (!enabled || !pageContextResolved) {
+      setLookup({ url: currentUrl, work: null, resolved: false })
       return () => { cancelled = true }
     }
     const lookupContext = pageContextRef.current
@@ -99,7 +100,7 @@ export function useCurrentConversationWork(
       if (!cancelled) setLookup({ url: currentUrl, work: null, resolved: true })
     })
     return () => { cancelled = true }
-  }, [client, currentUrl, pageContextResolved, refreshVersion])
+  }, [client, currentUrl, pageContextResolved, enabled, refreshVersion])
 
   const matchesCurrentUrl = lookup.url === currentUrl
   return {

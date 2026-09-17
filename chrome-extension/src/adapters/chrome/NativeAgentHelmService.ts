@@ -315,19 +315,14 @@ export class NativeAgentHelmService implements AgentHelmServiceAdapter {
       }
     }
 
-    const [summariesResult, workspacesResult] = await Promise.allSettled([
-      this.transport.request<Record<string, unknown>>('listChatSessionSummaryPage', [undefined, WORK_HISTORY_PAGE_SIZE]),
-      this.transport.request<unknown[]>('listWorkspaces'),
-    ])
-    const page = summariesResult.status === 'fulfilled' ? record(summariesResult.value) : {}
-    const summaries = Array.isArray(page.sessions) ? page.sessions : []
-    const nextCursor = stringValue(page.nextCursor)
-    const workspaces = workspacesResult.status === 'fulfilled' ? workspacesResult.value : []
-    return projectNativeSnapshot(health, summaries, workspaces, nextCursor)
+    let workspaces: unknown[] = []
+    try { workspaces = await this.transport.request<unknown[]>('listWorkspaces') }
+    catch {}
+    return projectNativeSnapshot(health, [], workspaces)
   }
 
   async getWorkHistoryPage(cursor?: string): Promise<WorkHistoryPage> {
-    const value = await this.transport.request<Record<string, unknown>>('listChatSessionSummaryPage', [cursor, WORK_HISTORY_PAGE_SIZE])
+    const value = await this.transport.request<Record<string, unknown>>('listChatSessionSummaryPage', [cursor, WORK_HISTORY_PAGE_SIZE], 30_000)
     const page = record(value)
     const summaries = Array.isArray(page.sessions) ? page.sessions : []
     const works = summaries.map(projectWorkSummary).filter((item): item is WorkHistorySummary => Boolean(item))
