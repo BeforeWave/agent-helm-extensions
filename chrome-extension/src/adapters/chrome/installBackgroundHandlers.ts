@@ -97,22 +97,35 @@ function panelEnabledForTab(state: PanelModeState, tab: chrome.tabs.Tab): boolea
   return state.mode === 'global' || pageContextFromTab(tab).kind !== 'other'
 }
 
-async function applyPanelMode(windowId: number, state: PanelModeState): Promise<void> {
-  // Keep one global panel instance. Per-tab options only control availability; assigning
-  // a path per tab would create distinct tab-specific panel instances.
-  await chrome.sidePanel.setOptions({ path: SIDE_PANEL_PATH, enabled: true })
-  const tabs = await chrome.tabs.query({ windowId })
-  for (const tab of tabs) {
-    if (typeof tab.id !== 'number') continue
-    await chrome.sidePanel.setOptions({ tabId: tab.id, enabled: panelEnabledForTab(state, tab) })
+async function setTabPanelForMode(state: PanelModeState, tab: chrome.tabs.Tab): Promise<void> {
+  if (typeof tab.id !== 'number') return
+  if (state.mode === 'global') return
+  if (panelEnabledForTab(state, tab)) {
+    // Chrome 131+ treats window-scoped and tab-scoped panels as independent entries.
+    // A tab-scoped enabled flag alone does not suppress an already-open global panel,
+    // so ChatGPT-only mode must use real contextual entries and disable the global one.
+    await chrome.sidePanel.setOptions({ tabId: tab.id, path: SIDE_PANEL_PATH, enabled: true })
+    return
   }
+  await chrome.sidePanel.setOptions({ tabId: tab.id, enabled: false })
+}
+
+async function applyPanelMode(windowId: number, state: PanelModeState): Promise<void> {
+  await chrome.sidePanel.setOptions({
+    path: SIDE_PANEL_PATH,
+    enabled: state.mode === 'global',
+  })
+  if (state.mode === 'global') return
+
+  const tabs = await chrome.tabs.query({ windowId })
+  for (const tab of tabs) await setTabPanelForMode(state, tab)
 }
 
 async function syncPanelForTab(tab: chrome.tabs.Tab): Promise<void> {
   if (typeof tab.id !== 'number' || typeof tab.windowId !== 'number') return
   const state = await readPanelMode(tab.windowId)
   if (!state) return
-  await chrome.sidePanel.setOptions({ tabId: tab.id, enabled: panelEnabledForTab(state, tab) })
+  await setTabPanelForMode(state, tab)
 }
 
 async function prepareSidePanelForCurrentTab(): Promise<chrome.sidePanel.OpenOptions> {
@@ -121,9 +134,13 @@ async function prepareSidePanelForCurrentTab(): Promise<chrome.sidePanel.OpenOpt
   const state: PanelModeState = pageContextFromTab(tab).kind !== 'other'
     ? { mode: 'chatgpt-only' }
     : { mode: 'global' }
-  await writePanelMode(tab.windowId, state)
   await applyPanelMode(tab.windowId, state)
-  return { windowId: tab.windowId }
+  // Persist only after the Chrome entries are configured. Disabling an older global
+  // entry can emit onClosed; that event must not erase the new policy before it opens.
+  await writePanelMode(tab.windowId, state)
+  return state.mode === 'chatgpt-only'
+    ? { tabId: tab.id }
+    : { windowId: tab.windowId }
 }
 
 export function installBackgroundHandlers(service: AgentHelmServiceAdapter = createChromeBackgroundService()): () => void {
@@ -362,9 +379,13 @@ export function installBackgroundHandlers(service: AgentHelmServiceAdapter = cre
       const panelMode = await readPanelMode(info.windowId)
       if (!panelMode) return
       if (panelMode.mode === 'chatgpt-only') {
+        // ChatGPT-only mode uses contextual panels. A global close can still arrive
+        // while switching away from an older global-mode entry; it is not a close of
+        // the active contextual panel and must not clear persistence.
+        if (typeof info.tabId !== 'number') return
         const [activeTab] = await chrome.tabs.query({ active: true, windowId: info.windowId })
-        // Chrome closes/hides a site-restricted panel when the active tab becomes
-        // ineligible. That transition must not be mistaken for a user closing it.
+        // Chrome closes/hides a site-restricted contextual panel when the active tab
+        // becomes ineligible. That transition must not be mistaken for a user close.
         if (activeTab && !panelEnabledForTab(panelMode, activeTab)) return
       }
       await chrome.storage.session.remove(panelStateKey(info.windowId))
