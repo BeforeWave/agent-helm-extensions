@@ -69,11 +69,7 @@ export class NativeMessagingTransport implements NativeControlTransport {
     return await new Promise<T>((resolve, reject) => {
       const timer = timeoutMs === null ? undefined : setTimeout(() => {
         if (!this.#pending.delete(id)) return
-        const timeoutError = new Error(`Native Messaging request timed out after ${String(timeoutMs)}ms: ${method}`)
-        if (this.#port === port) this.#port = undefined
-        try { port.disconnect() } catch {}
-        this.#rejectPending(timeoutError)
-        reject(timeoutError)
+        reject(new Error(`Native Messaging request timed out after ${String(timeoutMs)}ms: ${method}`))
       }, timeoutMs)
       this.#pending.set(id, {
         resolve: (value) => resolve(value as T),

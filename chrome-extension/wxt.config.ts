@@ -8,7 +8,6 @@ if (!/^\d+\.\d+\.\d+$/.test(packageVersion)) throw new Error(`Chrome Extension p
 const releaseVersion = process.env.AGENT_HELM_RELEASE_VERSION?.trim() || packageVersion
 const releaseMatch = /^(\d+\.\d+\.\d+)(-dev)?$/.exec(releaseVersion)
 if (!releaseMatch || releaseMatch[1] !== packageVersion) throw new Error(`Chrome Extension release version ${releaseVersion || '(missing)'} must target package version ${packageVersion}`)
-const developmentRelease = Boolean(releaseMatch[2])
 
 export default defineConfig({
   modules: ['@wxt-dev/module-react'],
@@ -21,7 +20,6 @@ export default defineConfig({
     name: '__MSG_extensionName__',
     description: '__MSG_extensionDescription__',
     version: packageVersion,
-    ...(developmentRelease ? { version_name: releaseVersion } : {}),
     permissions: ['alarms', 'nativeMessaging', 'notifications', 'sidePanel', 'storage'],
     optional_permissions: ['downloads'],
     host_permissions: [

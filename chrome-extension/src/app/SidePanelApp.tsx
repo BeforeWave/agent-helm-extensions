@@ -382,8 +382,7 @@ export function SidePanelApp({ client }: { client: BrowserControlPlaneClient }) 
         />
       </section>
 
-      <div className="history-divider" />
-
+      <div className="sidepanel-section-heading">{t('extensionWorkHistorySection')}</div>
       <section className="work-history-region" ref={listScrollRef} aria-busy={workHistoryLoading}>
         {workHistoryLoading
           ? <div className="empty-state">{t('extensionLoadingWorkHistory')}</div>
