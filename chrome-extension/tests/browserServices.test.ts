@@ -209,6 +209,42 @@ describe('browser service helpers', () => {
     }
   })
 
+  it('keeps the control snapshot lightweight and lazy-loads Work History with its own read budget', async () => {
+    const requests: Array<{ method: string; params?: unknown[]; timeoutMs?: number | null }> = []
+    const health = {
+      status: 'running',
+      running: true,
+      clientLifecycle: { configurable: true },
+      externalCapabilities: {},
+      externalUserAccess: {},
+      tunnel: { running: false },
+      localMcp: { enabled: false },
+      adapters: [],
+    }
+    const transport = {
+      async request(method: string, params?: unknown[], timeoutMs?: number | null) {
+        requests.push({ method, params, timeoutMs })
+        if (method === 'supervisorHealth') return health
+        if (method === 'listWorkspaces') return [{ id: 'workspace-example', title: 'example' }]
+        if (method === 'listChatSessionSummaryPage') return { sessions: [], nextCursor: '10' }
+        throw new Error(`Unexpected native method: ${method}`)
+      },
+    } as unknown as NativeMessagingTransport
+
+    const service = new NativeAgentHelmService(transport)
+    const snapshot = await service.getSnapshot()
+    expect(snapshot.works).toEqual([])
+    expect(requests.map((entry) => entry.method)).toEqual(['supervisorHealth', 'listWorkspaces'])
+
+    const page = await service.getWorkHistoryPage()
+    expect(page).toEqual({ works: [], nextCursor: '10' })
+    expect(requests.at(-1)).toEqual({
+      method: 'listChatSessionSummaryPage',
+      params: [undefined, 10],
+      timeoutMs: 30_000,
+    })
+  })
+
   it('registers a workspace through the Native Host without a fixed picker timeout and refreshes the authoritative workspace list', async () => {
     const requests: Array<{ method: string; params?: unknown[]; timeoutMs?: number | null }> = []
     const transport = {
@@ -314,6 +350,13 @@ describe('browser service helpers', () => {
     expect(markup).toContain('color:var(--helm-secondary)')
     expect(markup).not.toContain('accordion__body')
     expect(markup).not.toContain('should-not-mount')
+  })
+
+  it('lets the popup viewport shrink with its content instead of retaining stale blank height', () => {
+    const styles = readFileSync(new URL('../src/app/styles.css', import.meta.url), 'utf8')
+    expect(styles).toContain('html, body, #root { width: 100%; max-width: 100%; margin: 0; overflow-x: hidden; }')
+    expect(styles).not.toContain('html, body, #root { width: 100%; max-width: 100%; margin: 0; min-height: 100%;')
+    expect(styles).toContain('.sidepanel-shell { width: 100%; max-width: 100%; min-width: 0; min-height: 100vh;')
   })
 
   it('keeps the production settings shell mounted under the loading overlay', async () => {

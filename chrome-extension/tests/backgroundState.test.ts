@@ -93,6 +93,7 @@ function installFakeChrome(initialTabs: chrome.tabs.Tab[]) {
   const updatedEvents = createEvent<(tabId: number, info: chrome.tabs.OnUpdatedInfo, tab: chrome.tabs.Tab) => void>()
   const notificationEvents = createEvent<(notificationId: string) => void>()
   const windowRemovedEvents = createEvent<(windowId: number) => void>()
+  const sidePanelClosedEvents = createEvent<(info: chrome.sidePanel.PanelClosedInfo) => void>()
   const tabs = initialTabs.map((tab) => ({ ...tab }))
   const sessionState: Record<string, unknown> = {}
   const sidePanelEnabled = new Map<number, boolean>()
@@ -173,9 +174,11 @@ function installFakeChrome(initialTabs: chrome.tabs.Tab[]) {
       },
       tabs: {
         async query(query: chrome.tabs.QueryInfo) {
-          if (typeof query.windowId === 'number') return tabs.filter((tab) => tab.windowId === query.windowId).map((tab) => ({ ...tab }))
-          if (query.active && query.currentWindow) return tabs.filter((tab) => tab.active).slice(0, 1).map((tab) => ({ ...tab }))
-          return tabs.map((tab) => ({ ...tab }))
+          let result = tabs
+          if (typeof query.windowId === 'number') result = result.filter((tab) => tab.windowId === query.windowId)
+          if (query.active) result = result.filter((tab) => tab.active)
+          if (query.active && query.currentWindow) result = result.slice(0, 1)
+          return result.map((tab) => ({ ...tab }))
         },
         async get(tabId: number) {
           const tab = tabs.find((candidate) => candidate.id === tabId)
@@ -186,6 +189,7 @@ function installFakeChrome(initialTabs: chrome.tabs.Tab[]) {
         onUpdated: updatedEvents,
       },
       sidePanel: {
+        onClosed: sidePanelClosedEvents,
         async setOptions(options: chrome.sidePanel.PanelOptions) {
           if (typeof options.tabId !== 'number') return
           const current = sidePanelOptions.get(options.tabId) ?? {}
@@ -242,6 +246,10 @@ function installFakeChrome(initialTabs: chrome.tabs.Tab[]) {
     sidePanelOpenCalls,
     sidePanelCloseCalls,
     globalSidePanelWindows,
+    closePanel(windowId: number) {
+      globalSidePanelWindows.delete(windowId)
+      sidePanelClosedEvents.emit({ windowId, path: 'sidepanel.html' })
+    },
     restore() {
       if (previousChrome) Object.defineProperty(globalThis, 'chrome', previousChrome)
       else delete (globalThis as { chrome?: unknown }).chrome
@@ -494,56 +502,42 @@ describe('background-owned Chrome state', () => {
     expect(updates.at(-1)?.settings.find((setting) => setting.id === 'core')?.enabled).toBe(false)
   })
 
-  it('clears an already-open global panel when a ChatGPT tab enters scoped mode', async () => {
-    const fakeChrome = installFakeChrome([
-      { id: 1, windowId: 10, active: false, url: 'https://chatgpt.com/c/example' } as chrome.tabs.Tab,
-      { id: 2, windowId: 10, active: true, url: 'https://example.com/' } as chrome.tabs.Tab,
-    ])
-    const dispose = installBackgroundHandlers(createMutableService().service)
-    cleanups.push(dispose, fakeChrome.restore)
-    await flushBackground()
-
-    const browser = new ChromeBrowserCapabilities()
-    await browser.openSidePanel()
-    expect(fakeChrome.globalSidePanelWindows.has(10)).toBe(true)
-
-    fakeChrome.activate(1)
-    await flushBackground()
-    await browser.openSidePanel()
-
-    expect(fakeChrome.sidePanelOpenCalls).toEqual([{ windowId: 10 }, { tabId: 1 }])
-    expect(fakeChrome.sidePanelCloseCalls).toContainEqual({ windowId: 10 })
-    expect(fakeChrome.globalSidePanelWindows.has(10)).toBe(false)
-    expect(fakeChrome.sidePanelEnabled.get(1)).toBe(true)
-    expect(fakeChrome.sidePanelEnabled.get(2)).toBe(false)
-  })
-
-  it('keeps a ChatGPT-opened panel scoped to its source tab and restores that tab without converting the mode', async () => {
+  it('keeps a ChatGPT-opened panel window-scoped while enabling it on every ChatGPT tab only', async () => {
     const fakeChrome = installFakeChrome([
       { id: 1, windowId: 10, active: true, url: 'https://chatgpt.com/c/example' } as chrome.tabs.Tab,
-      { id: 2, windowId: 10, active: false, url: 'https://example.com/' } as chrome.tabs.Tab,
+      { id: 2, windowId: 10, active: false, url: 'https://chatgpt.com/' } as chrome.tabs.Tab,
+      { id: 3, windowId: 10, active: false, url: 'https://example.com/' } as chrome.tabs.Tab,
     ])
     const dispose = installBackgroundHandlers(createMutableService().service)
     cleanups.push(dispose, fakeChrome.restore)
     await flushBackground()
 
     await new ChromeBrowserCapabilities().openSidePanel()
-    expect(fakeChrome.sidePanelOpenCalls).toEqual([{ tabId: 1 }])
+    expect(fakeChrome.sidePanelOpenCalls).toEqual([{ windowId: 10 }])
     expect(fakeChrome.sidePanelEnabled.get(1)).toBe(true)
-    expect(fakeChrome.sidePanelEnabled.get(2)).toBe(false)
-    expect(fakeChrome.sessionState['agentHelmSidePanelMode:10']).toEqual({ mode: 'chatgpt-scoped', sourceTabId: 1 })
+    expect(fakeChrome.sidePanelEnabled.get(2)).toBe(true)
+    expect(fakeChrome.sidePanelEnabled.get(3)).toBe(false)
+    expect(fakeChrome.sessionState['agentHelmSidePanelMode:10']).toEqual({ mode: 'chatgpt-only' })
 
     fakeChrome.activate(2)
     await flushBackground()
-    expect(fakeChrome.sidePanelEnabled.get(2)).toBe(false)
+    expect(fakeChrome.sidePanelEnabled.get(2)).toBe(true)
+
+    fakeChrome.activate(3)
+    await flushBackground()
+    expect(fakeChrome.sidePanelEnabled.get(3)).toBe(false)
+
+    fakeChrome.closePanel(10)
+    await flushBackground()
+    expect(fakeChrome.sessionState['agentHelmSidePanelMode:10']).toEqual({ mode: 'chatgpt-only' })
 
     fakeChrome.activate(1)
     await flushBackground()
     expect(fakeChrome.sidePanelEnabled.get(1)).toBe(true)
-    expect(fakeChrome.sessionState['agentHelmSidePanelMode:10']).toEqual({ mode: 'chatgpt-scoped', sourceTabId: 1 })
+    expect(fakeChrome.sessionState['agentHelmSidePanelMode:10']).toEqual({ mode: 'chatgpt-only' })
   })
 
-  it('keeps a panel explicitly opened from a non-ChatGPT page global across tab switches', async () => {
+  it('keeps a panel explicitly opened from a non-ChatGPT page global across all URLs', async () => {
     const fakeChrome = installFakeChrome([
       { id: 1, windowId: 10, active: false, url: 'https://chatgpt.com/c/example' } as chrome.tabs.Tab,
       { id: 2, windowId: 10, active: true, url: 'https://example.com/' } as chrome.tabs.Tab,
@@ -556,15 +550,17 @@ describe('background-owned Chrome state', () => {
     expect(fakeChrome.sidePanelOpenCalls).toEqual([{ windowId: 10 }])
     expect(fakeChrome.sidePanelEnabled.get(1)).toBe(true)
     expect(fakeChrome.sidePanelEnabled.get(2)).toBe(true)
-    expect(fakeChrome.sessionState['agentHelmSidePanelMode:10']).toEqual({ mode: 'global', sourceTabId: null })
+    expect(fakeChrome.sessionState['agentHelmSidePanelMode:10']).toEqual({ mode: 'global' })
 
     fakeChrome.activate(1)
     await flushBackground()
+    fakeChrome.updateUrl(1, 'https://example.org/other')
+    await flushBackground()
     expect(fakeChrome.sidePanelEnabled.get(1)).toBe(true)
-    expect(fakeChrome.sidePanelEnabled.get(2)).toBe(true)
+    expect(fakeChrome.sessionState['agentHelmSidePanelMode:10']).toEqual({ mode: 'global' })
   })
 
-  it('does not let navigation or a prior scoped override convert an explicit global panel back to scoped mode', async () => {
+  it('tracks ChatGPT eligibility by URL instead of by the source tab id', async () => {
     const fakeChrome = installFakeChrome([
       { id: 1, windowId: 10, active: true, url: 'https://chatgpt.com/c/example' } as chrome.tabs.Tab,
       { id: 2, windowId: 10, active: false, url: 'https://example.com/' } as chrome.tabs.Tab,
@@ -573,24 +569,67 @@ describe('background-owned Chrome state', () => {
     cleanups.push(dispose, fakeChrome.restore)
     await flushBackground()
 
-    const browser = new ChromeBrowserCapabilities()
-    await browser.openSidePanel()
-    expect(fakeChrome.sidePanelEnabled.get(2)).toBe(false)
+    await new ChromeBrowserCapabilities().openSidePanel()
+    fakeChrome.updateUrl(2, 'https://chatgpt.com/c/another')
+    await flushBackground()
+    expect(fakeChrome.sidePanelEnabled.get(2)).toBe(true)
+
+    fakeChrome.updateUrl(1, 'https://example.org/away')
+    await flushBackground()
+    expect(fakeChrome.sidePanelEnabled.get(1)).toBe(false)
+
+    fakeChrome.updateUrl(1, 'https://chatgpt.com/g/g-example')
+    await flushBackground()
+    expect(fakeChrome.sidePanelEnabled.get(1)).toBe(true)
+  })
+
+  it('forgets global persistence after the user manually closes the panel', async () => {
+    const fakeChrome = installFakeChrome([
+      { id: 1, windowId: 10, active: false, url: 'https://chatgpt.com/c/example' } as chrome.tabs.Tab,
+      { id: 2, windowId: 10, active: true, url: 'https://example.com/' } as chrome.tabs.Tab,
+    ])
+    const dispose = installBackgroundHandlers(createMutableService().service)
+    cleanups.push(dispose, fakeChrome.restore)
+    await flushBackground()
+
+    await new ChromeBrowserCapabilities().openSidePanel()
+    fakeChrome.closePanel(10)
+    await flushBackground()
+    expect(fakeChrome.sessionState['agentHelmSidePanelMode:10']).toBeUndefined()
+
+    fakeChrome.activate(1)
+    await flushBackground()
+    fakeChrome.activate(2)
+    await flushBackground()
+    expect(fakeChrome.sidePanelOpenCalls).toEqual([{ windowId: 10 }])
+  })
+
+  it('forgets ChatGPT persistence after a manual close on ChatGPT but not after automatic hiding off-site', async () => {
+    const fakeChrome = installFakeChrome([
+      { id: 1, windowId: 10, active: true, url: 'https://chatgpt.com/c/example' } as chrome.tabs.Tab,
+      { id: 2, windowId: 10, active: false, url: 'https://example.com/' } as chrome.tabs.Tab,
+    ])
+    const dispose = installBackgroundHandlers(createMutableService().service)
+    cleanups.push(dispose, fakeChrome.restore)
+    await flushBackground()
+
+    await new ChromeBrowserCapabilities().openSidePanel()
+    fakeChrome.activate(2)
+    await flushBackground()
+    fakeChrome.closePanel(10)
+    await flushBackground()
+    expect(fakeChrome.sessionState['agentHelmSidePanelMode:10']).toEqual({ mode: 'chatgpt-only' })
+
+    fakeChrome.activate(1)
+    await flushBackground()
+    fakeChrome.closePanel(10)
+    await flushBackground()
+    expect(fakeChrome.sessionState['agentHelmSidePanelMode:10']).toBeUndefined()
 
     fakeChrome.activate(2)
     await flushBackground()
-    await browser.openSidePanel()
-    expect(fakeChrome.sidePanelEnabled.get(1)).toBe(true)
-    expect(fakeChrome.sidePanelEnabled.get(2)).toBe(true)
-    expect(fakeChrome.sessionState['agentHelmSidePanelMode:10']).toEqual({ mode: 'global', sourceTabId: null })
-
-    fakeChrome.updateUrl(2, 'https://chatgpt.com/c/new-conversation')
+    fakeChrome.activate(1)
     await flushBackground()
-    fakeChrome.updateUrl(2, 'https://example.org/again')
-    await flushBackground()
-
-    expect(fakeChrome.sidePanelEnabled.get(1)).toBe(true)
-    expect(fakeChrome.sidePanelEnabled.get(2)).toBe(true)
-    expect(fakeChrome.sessionState['agentHelmSidePanelMode:10']).toEqual({ mode: 'global', sourceTabId: null })
+    expect(fakeChrome.sidePanelOpenCalls).toEqual([{ windowId: 10 }])
   })
 })
