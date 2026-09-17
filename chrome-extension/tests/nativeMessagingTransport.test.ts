@@ -67,3 +67,48 @@ it('times out one request without disconnecting the shared Native Messaging port
     else delete (globalThis as { chrome?: unknown }).chrome
   }
 })
+
+it('reassembles a response split into bounded Native Messaging chunks', async () => {
+  let onMessage: ((message: unknown) => void) | undefined
+  let disconnectCalls = 0
+  const posted: Array<{ id: string; method: string }> = []
+  const port = {
+    onMessage: { addListener(listener: (message: unknown) => void) { onMessage = listener } },
+    onDisconnect: { addListener() {} },
+    postMessage(message: { id: string; method: string }) { posted.push(message) },
+    disconnect() { disconnectCalls += 1 },
+  } as unknown as chrome.runtime.Port
+  const previousChrome = Object.getOwnPropertyDescriptor(globalThis, 'chrome')
+  Object.defineProperty(globalThis, 'chrome', {
+    configurable: true,
+    value: { runtime: { connectNative: () => port } },
+  })
+  try {
+    const transport = new NativeMessagingTransport('com.beforewave.agent_helm')
+    const pending = transport.request<{ timeline: string }>('getChatSessionTimeline', [], 1_000)
+    const request = posted[0]
+    expect(request).toBeDefined()
+
+    const logical = Buffer.from(JSON.stringify({
+      id: request!.id,
+      result: { timeline: 'activity'.repeat(180_000) },
+    }), 'utf8')
+    const chunkSize = 512 * 1024
+    const total = Math.ceil(logical.length / chunkSize)
+    const frames = Array.from({ length: total }, (_, index) => ({
+      id: request!.id,
+      chunk: {
+        index,
+        total,
+        data: logical.subarray(index * chunkSize, (index + 1) * chunkSize).toString('base64'),
+      },
+    }))
+    for (const frame of frames.reverse()) onMessage?.(frame)
+
+    await expect(pending).resolves.toEqual({ timeline: 'activity'.repeat(180_000) })
+    expect(disconnectCalls).toBe(0)
+  } finally {
+    if (previousChrome) Object.defineProperty(globalThis, 'chrome', previousChrome)
+    else delete (globalThis as { chrome?: unknown }).chrome
+  }
+})

@@ -98,6 +98,7 @@ function installFakeChrome(initialTabs: chrome.tabs.Tab[]) {
   const sessionState: Record<string, unknown> = {}
   const sidePanelEnabled = new Map<number, boolean>()
   const sidePanelOptions = new Map<number, { path?: string; enabled?: boolean }>()
+  let sidePanelDefaultOptions: { path?: string; enabled?: boolean } = {}
   const sidePanelOpenCalls: Array<{ tabId?: number; windowId?: number }> = []
   const sidePanelCloseCalls: Array<{ tabId?: number; windowId?: number }> = []
   const globalSidePanelWindows = new Set<number>()
@@ -191,7 +192,10 @@ function installFakeChrome(initialTabs: chrome.tabs.Tab[]) {
       sidePanel: {
         onClosed: sidePanelClosedEvents,
         async setOptions(options: chrome.sidePanel.PanelOptions) {
-          if (typeof options.tabId !== 'number') return
+          if (typeof options.tabId !== 'number') {
+            sidePanelDefaultOptions = { ...sidePanelDefaultOptions, ...options }
+            return
+          }
           const current = sidePanelOptions.get(options.tabId) ?? {}
           const next = { ...current, ...options }
           sidePanelOptions.set(options.tabId, next)
@@ -200,7 +204,9 @@ function installFakeChrome(initialTabs: chrome.tabs.Tab[]) {
         async open(options: { tabId?: number; windowId?: number }) {
           if (typeof options.tabId === 'number') {
             const specific = sidePanelOptions.get(options.tabId)
-            if (specific && (specific.enabled === false || !specific.path)) throw new Error(`No active side panel for tabId: ${options.tabId}`)
+            if (!specific || specific.enabled === false || !specific.path) throw new Error(`No active side panel for tabId: ${options.tabId}`)
+          } else if (typeof options.windowId === 'number' && sidePanelDefaultOptions.enabled === false) {
+            throw new Error(`No active global side panel for windowId: ${options.windowId}`)
           }
           if (typeof options.windowId === 'number') globalSidePanelWindows.add(options.windowId)
           sidePanelOpenCalls.push({ ...options })
@@ -243,12 +249,13 @@ function installFakeChrome(initialTabs: chrome.tabs.Tab[]) {
     sessionState,
     sidePanelEnabled,
     sidePanelOptions,
+    get sidePanelDefaultOptions() { return { ...sidePanelDefaultOptions } },
     sidePanelOpenCalls,
     sidePanelCloseCalls,
     globalSidePanelWindows,
-    closePanel(windowId: number) {
+    closePanel(windowId: number, tabId?: number) {
       globalSidePanelWindows.delete(windowId)
-      sidePanelClosedEvents.emit({ windowId, path: 'sidepanel.html' })
+      sidePanelClosedEvents.emit({ windowId, ...(typeof tabId === 'number' ? { tabId } : {}), path: 'sidepanel.html' })
     },
     restore() {
       if (previousChrome) Object.defineProperty(globalThis, 'chrome', previousChrome)
@@ -502,7 +509,7 @@ describe('background-owned Chrome state', () => {
     expect(updates.at(-1)?.settings.find((setting) => setting.id === 'core')?.enabled).toBe(false)
   })
 
-  it('keeps a ChatGPT-opened panel window-scoped while enabling it on every ChatGPT tab only', async () => {
+  it('keeps a ChatGPT-opened panel contextual to ChatGPT tabs while disabling the global entry', async () => {
     const fakeChrome = installFakeChrome([
       { id: 1, windowId: 10, active: true, url: 'https://chatgpt.com/c/example' } as chrome.tabs.Tab,
       { id: 2, windowId: 10, active: false, url: 'https://chatgpt.com/' } as chrome.tabs.Tab,
@@ -513,9 +520,10 @@ describe('background-owned Chrome state', () => {
     await flushBackground()
 
     await new ChromeBrowserCapabilities().openSidePanel()
-    expect(fakeChrome.sidePanelOpenCalls).toEqual([{ windowId: 10 }])
-    expect(fakeChrome.sidePanelEnabled.get(1)).toBe(true)
-    expect(fakeChrome.sidePanelEnabled.get(2)).toBe(true)
+    expect(fakeChrome.sidePanelOpenCalls).toEqual([{ tabId: 1 }])
+    expect(fakeChrome.sidePanelDefaultOptions).toMatchObject({ path: 'sidepanel.html', enabled: false })
+    expect(fakeChrome.sidePanelOptions.get(1)).toMatchObject({ path: 'sidepanel.html', enabled: true })
+    expect(fakeChrome.sidePanelOptions.get(2)).toMatchObject({ path: 'sidepanel.html', enabled: true })
     expect(fakeChrome.sidePanelEnabled.get(3)).toBe(false)
     expect(fakeChrome.sessionState['agentHelmSidePanelMode:10']).toEqual({ mode: 'chatgpt-only' })
 
@@ -527,7 +535,7 @@ describe('background-owned Chrome state', () => {
     await flushBackground()
     expect(fakeChrome.sidePanelEnabled.get(3)).toBe(false)
 
-    fakeChrome.closePanel(10)
+    fakeChrome.closePanel(10, 1)
     await flushBackground()
     expect(fakeChrome.sessionState['agentHelmSidePanelMode:10']).toEqual({ mode: 'chatgpt-only' })
 
@@ -535,6 +543,24 @@ describe('background-owned Chrome state', () => {
     await flushBackground()
     expect(fakeChrome.sidePanelEnabled.get(1)).toBe(true)
     expect(fakeChrome.sessionState['agentHelmSidePanelMode:10']).toEqual({ mode: 'chatgpt-only' })
+  })
+
+  it('does not let a stale global close erase a newly selected ChatGPT-only policy', async () => {
+    const fakeChrome = installFakeChrome([
+      { id: 1, windowId: 10, active: true, url: 'https://chatgpt.com/c/example' } as chrome.tabs.Tab,
+    ])
+    fakeChrome.sessionState['agentHelmSidePanelMode:10'] = { mode: 'chatgpt-only' }
+    const dispose = installBackgroundHandlers(createMutableService().service)
+    cleanups.push(dispose, fakeChrome.restore)
+    await flushBackground()
+
+    fakeChrome.closePanel(10)
+    await flushBackground()
+    expect(fakeChrome.sessionState['agentHelmSidePanelMode:10']).toEqual({ mode: 'chatgpt-only' })
+
+    fakeChrome.closePanel(10, 1)
+    await flushBackground()
+    expect(fakeChrome.sessionState['agentHelmSidePanelMode:10']).toBeUndefined()
   })
 
   it('keeps a panel explicitly opened from a non-ChatGPT page global across all URLs', async () => {
@@ -548,15 +574,15 @@ describe('background-owned Chrome state', () => {
 
     await new ChromeBrowserCapabilities().openSidePanel()
     expect(fakeChrome.sidePanelOpenCalls).toEqual([{ windowId: 10 }])
-    expect(fakeChrome.sidePanelEnabled.get(1)).toBe(true)
-    expect(fakeChrome.sidePanelEnabled.get(2)).toBe(true)
+    expect(fakeChrome.sidePanelDefaultOptions).toMatchObject({ path: 'sidepanel.html', enabled: true })
+    expect(fakeChrome.sidePanelOptions.size).toBe(0)
     expect(fakeChrome.sessionState['agentHelmSidePanelMode:10']).toEqual({ mode: 'global' })
 
     fakeChrome.activate(1)
     await flushBackground()
     fakeChrome.updateUrl(1, 'https://example.org/other')
     await flushBackground()
-    expect(fakeChrome.sidePanelEnabled.get(1)).toBe(true)
+    expect(fakeChrome.sidePanelDefaultOptions).toMatchObject({ path: 'sidepanel.html', enabled: true })
     expect(fakeChrome.sessionState['agentHelmSidePanelMode:10']).toEqual({ mode: 'global' })
   })
 
@@ -570,6 +596,8 @@ describe('background-owned Chrome state', () => {
     await flushBackground()
 
     await new ChromeBrowserCapabilities().openSidePanel()
+    expect(fakeChrome.sidePanelDefaultOptions).toMatchObject({ path: 'sidepanel.html', enabled: false })
+    expect(fakeChrome.sidePanelOpenCalls).toEqual([{ tabId: 1 }])
     fakeChrome.updateUrl(2, 'https://chatgpt.com/c/another')
     await flushBackground()
     expect(fakeChrome.sidePanelEnabled.get(2)).toBe(true)
@@ -616,13 +644,13 @@ describe('background-owned Chrome state', () => {
     await new ChromeBrowserCapabilities().openSidePanel()
     fakeChrome.activate(2)
     await flushBackground()
-    fakeChrome.closePanel(10)
+    fakeChrome.closePanel(10, 1)
     await flushBackground()
     expect(fakeChrome.sessionState['agentHelmSidePanelMode:10']).toEqual({ mode: 'chatgpt-only' })
 
     fakeChrome.activate(1)
     await flushBackground()
-    fakeChrome.closePanel(10)
+    fakeChrome.closePanel(10, 1)
     await flushBackground()
     expect(fakeChrome.sessionState['agentHelmSidePanelMode:10']).toBeUndefined()
 
@@ -630,6 +658,6 @@ describe('background-owned Chrome state', () => {
     await flushBackground()
     fakeChrome.activate(1)
     await flushBackground()
-    expect(fakeChrome.sidePanelOpenCalls).toEqual([{ windowId: 10 }])
+    expect(fakeChrome.sidePanelOpenCalls).toEqual([{ tabId: 1 }])
   })
 })
