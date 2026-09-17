@@ -13,6 +13,7 @@ export class BrowserControlPlaneClient {
     return this.service.subscribeSnapshot?.(listener) ?? (() => {})
   }
   getWorkDetail(workId: string) { return this.service.getWorkDetail(workId) }
+  subscribeWorkHistoryChanges(listener: () => void) { return this.service.subscribeWorkHistoryChanges?.(listener) ?? (() => {}) }
   subscribeWorkTimeline(workId: string, afterSequence: number, onUpdates: (updates: WorkTimelineItem[]) => void, onError?: (error: Error) => void) {
     return this.service.subscribeWorkTimeline?.(workId, afterSequence, onUpdates, onError) ?? (() => {})
   }

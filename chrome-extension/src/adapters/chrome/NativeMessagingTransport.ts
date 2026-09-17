@@ -13,6 +13,7 @@ export interface NativeControlTransport {
   request<T>(method: string, params?: unknown[], timeoutMs?: number | null): Promise<T>
   daemonProbe(): Promise<NativeDaemonProbe>
   probe(): Promise<ConnectionStatus>
+  subscribeWorkHistoryChanges?(listener: () => void): () => void
 }
 
 type NativeResponseChunk = {
@@ -26,6 +27,7 @@ type NativeResponseEnvelope = {
   result?: unknown
   error?: unknown
   chunk?: unknown
+  event?: unknown
 }
 
 type PendingNativeRequest = {
@@ -70,6 +72,7 @@ function decodeChunkedNativeResponse(parts: Map<number, string>, total: number):
 export class NativeMessagingTransport implements NativeControlTransport {
   #port: chrome.runtime.Port | undefined
   readonly #pending = new Map<string, PendingNativeRequest>()
+  readonly #workHistoryListeners = new Set<() => void>()
 
   constructor(private readonly hostName: string) {}
 
@@ -127,6 +130,10 @@ export class NativeMessagingTransport implements NativeControlTransport {
     port.onMessage.addListener((message: unknown) => {
       if (!message || typeof message !== 'object' || Array.isArray(message)) return
       const response = message as NativeResponseEnvelope
+      if (response.event === 'work-history-changed') {
+        for (const listener of [...this.#workHistoryListeners]) listener()
+        return
+      }
       if (typeof response.id !== 'string') return
       const pending = this.#pending.get(response.id)
       if (!pending) return
@@ -171,6 +178,12 @@ export class NativeMessagingTransport implements NativeControlTransport {
         reject(error instanceof Error ? error : new Error(String(error)))
       }
     })
+  }
+
+  subscribeWorkHistoryChanges(listener: () => void): () => void {
+    this.#workHistoryListeners.add(listener)
+    this.#ensurePort()
+    return () => { this.#workHistoryListeners.delete(listener) }
   }
 
   async daemonProbe(): Promise<NativeDaemonProbe> {

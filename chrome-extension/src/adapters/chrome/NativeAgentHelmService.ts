@@ -321,6 +321,10 @@ export class NativeAgentHelmService implements AgentHelmServiceAdapter {
     return projectNativeSnapshot(health, [], workspaces)
   }
 
+  subscribeWorkHistoryChanges(listener: () => void): () => void {
+    return this.transport.subscribeWorkHistoryChanges?.(listener) ?? (() => {})
+  }
+
   async getWorkHistoryPage(cursor?: string): Promise<WorkHistoryPage> {
     const value = await this.transport.request<Record<string, unknown>>('listChatSessionSummaryPage', [cursor, WORK_HISTORY_PAGE_SIZE], 30_000)
     const page = record(value)

@@ -16,6 +16,7 @@ export const CONTROL_PLANE_REQUEST_MESSAGE = 'agent-helm:control-plane-request'
 export const CONTROL_PLANE_SNAPSHOT_MESSAGE = 'agent-helm:control-plane-snapshot'
 export const OPEN_SIDE_PANEL_MESSAGE = 'agent-helm:open-side-panel'
 export const CONTROL_PLANE_TIMELINE_PORT = 'agent-helm:timeline'
+export const CONTROL_PLANE_WORK_HISTORY_PORT = 'agent-helm:work-history'
 
 export interface ControlPlaneRequestMessage {
   type: typeof CONTROL_PLANE_REQUEST_MESSAGE
@@ -73,6 +74,24 @@ export class BackgroundAgentHelmService implements AgentHelmServiceAdapter {
     runtimeMessages.addListener(onMessage)
     return () => runtimeMessages.removeListener(onMessage)
   }
+  subscribeWorkHistoryChanges(listener: () => void): () => void {
+    if (!chrome.runtime?.connect) throw new Error('Chrome runtime port API is unavailable')
+    const port = chrome.runtime.connect({ name: CONTROL_PLANE_WORK_HISTORY_PORT })
+    let active = true
+    const handleMessage = (message: unknown) => {
+      if (!active || !message || typeof message !== 'object' || Array.isArray(message)) return
+      const value = message as { type?: unknown }
+      if (value.type === 'changed') listener()
+    }
+    port.onMessage.addListener(handleMessage)
+    port.onDisconnect.addListener(() => { active = false })
+    return () => {
+      if (!active) return
+      active = false
+      try { port.disconnect() } catch {}
+    }
+  }
+
   subscribeWorkTimeline(workId: string, afterSequence: number, onUpdates: (updates: WorkTimelineItem[]) => void, onError?: (error: Error) => void): () => void {
     if (!chrome.runtime?.connect) throw new Error('Chrome runtime port API is unavailable')
     const port = chrome.runtime.connect({ name: CONTROL_PLANE_TIMELINE_PORT })

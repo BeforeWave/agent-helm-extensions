@@ -19,6 +19,7 @@ export interface ControlPlaneStateUpdate {
 
 export interface AgentHelmServiceAdapter {
   subscribeSnapshot?(listener: (update: ControlPlaneStateUpdate) => void): () => void
+  subscribeWorkHistoryChanges?(listener: () => void): () => void
   getSnapshot(): Promise<ControlPlaneSnapshot>
   getWorkDetail(workId: string): Promise<WorkHistoryDetail>
   getWorkTimelineUpdates?(workId: string, afterSequence: number): Promise<WorkTimelineUpdateBatch>

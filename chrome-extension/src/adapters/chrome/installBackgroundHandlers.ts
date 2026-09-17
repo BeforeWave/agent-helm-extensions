@@ -7,6 +7,7 @@ import {
   CONTROL_PLANE_SNAPSHOT_MESSAGE,
   OPEN_SIDE_PANEL_MESSAGE,
   CONTROL_PLANE_TIMELINE_PORT,
+  CONTROL_PLANE_WORK_HISTORY_PORT,
   type ControlPlaneRequestMessage,
 } from './BackgroundAgentHelmService'
 
@@ -96,6 +97,27 @@ export function installBackgroundHandlers(service: AgentHelmServiceAdapter = cre
   }
   const timelineStreams = new Map<string, TimelineStreamState>()
   const timelinePollIntervalMs = 500
+  const workHistoryPorts = new Set<chrome.runtime.Port>()
+  let unsubscribeWorkHistoryChanges: (() => void) | undefined
+
+  const onWorkHistoryPort = (port: chrome.runtime.Port) => {
+    if (port.name !== CONTROL_PLANE_WORK_HISTORY_PORT) return
+    workHistoryPorts.add(port)
+    if (!unsubscribeWorkHistoryChanges && service.subscribeWorkHistoryChanges) {
+      unsubscribeWorkHistoryChanges = service.subscribeWorkHistoryChanges(() => {
+        for (const subscriber of [...workHistoryPorts]) {
+          try { subscriber.postMessage({ type: 'changed' }) } catch {}
+        }
+      })
+    }
+    port.onDisconnect.addListener(() => {
+      workHistoryPorts.delete(port)
+      if (workHistoryPorts.size === 0) {
+        unsubscribeWorkHistoryChanges?.()
+        unsubscribeWorkHistoryChanges = undefined
+      }
+    })
+  }
 
   const releaseTimelineStream = (workId: string, stream: TimelineStreamState) => {
     if (stream.timer) clearTimeout(stream.timer)
@@ -330,6 +352,7 @@ export function installBackgroundHandlers(service: AgentHelmServiceAdapter = cre
   chrome.alarms.onAlarm.addListener(onAlarm)
   chrome.runtime.onMessage.addListener(onRuntimeMessage)
   chrome.runtime.onConnect?.addListener(onTimelinePort)
+  chrome.runtime.onConnect?.addListener(onWorkHistoryPort)
   chrome.alarms.create(ACTION_STATUS_ALARM, { periodInMinutes: 1 })
   void chrome.sidePanel.setOptions({ enabled: false }).catch(() => {})
   void runSnapshotOperation(refreshAuthoritativeSnapshot).catch(() => {})
@@ -339,6 +362,10 @@ export function installBackgroundHandlers(service: AgentHelmServiceAdapter = cre
     chrome.alarms.onAlarm.removeListener(onAlarm)
     chrome.runtime.onMessage.removeListener(onRuntimeMessage)
     chrome.runtime.onConnect?.removeListener(onTimelinePort)
+    chrome.runtime.onConnect?.removeListener(onWorkHistoryPort)
+    unsubscribeWorkHistoryChanges?.()
+    unsubscribeWorkHistoryChanges = undefined
+    workHistoryPorts.clear()
     for (const [workId, stream] of [...timelineStreams]) releaseTimelineStream(workId, stream)
     clearSnapshotRecovery()
   }

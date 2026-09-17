@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createWorkHistoryListModel, mergeGroupedWorkHistoryTimeline, mergeWorkHistoryConversationDetail, mergeWorkHistoryTimeline } from '../models/workHistory'
+import { mergeWorkHistorySessionPage } from '../__shared/work-history-ui/model'
 import type { BrowserControlPlaneClient } from '../client/BrowserControlPlaneClient'
 import { WorkDetail } from '../components/WorkDetail'
 import { WorkHistoryList } from '../components/WorkHistoryList'
@@ -156,6 +157,37 @@ export function SidePanelApp({ client }: { client: BrowserControlPlaneClient }) 
       }))
     })
     return () => { cancelled = true }
+  }, [client, coreRunning])
+
+  useEffect(() => {
+    if (!coreRunning) return
+    let cancelled = false
+    let refreshing = false
+    let pending = false
+    const refreshFirstPage = (): void => {
+      if (refreshing) { pending = true; return }
+      refreshing = true
+      void client.getWorkHistoryPage().then((page) => {
+        if (cancelled) return
+        setWorkHistoryState((current) => {
+          const works = page.nextCursor ? mergeWorkHistorySessionPage(current.works, page.works) : page.works
+          return {
+            ...current,
+            works,
+            nextCursor: page.nextCursor ? String(works.length) : undefined,
+            loaded: true,
+            error: null,
+          }
+        })
+      }).catch((cause) => {
+        if (!cancelled) setWorkHistoryState((current) => ({ ...current, error: cause instanceof Error ? cause.message : String(cause) }))
+      }).finally(() => {
+        refreshing = false
+        if (!cancelled && pending) { pending = false; refreshFirstPage() }
+      })
+    }
+    const unsubscribe = client.subscribeWorkHistoryChanges(refreshFirstPage)
+    return () => { cancelled = true; unsubscribe() }
   }, [client, coreRunning])
 
   useEffect(() => {
