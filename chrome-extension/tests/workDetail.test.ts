@@ -181,7 +181,7 @@ describe('Work Detail activity item layout', () => {
     const meta = shared.indexOf('<div className="timeline-item__meta">')
     const time = shared.indexOf('<time>{formatTimestamp(item.timestamp)}</time>', meta)
     const metaMain = shared.indexOf('<div className="timeline-item__meta-main">', meta)
-    const durations = shared.indexOf('{details.durations.map', metaMain)
+    const durations = shared.indexOf('{details.durations.length', metaMain)
     const statuses = shared.indexOf('{details.statuses.map', metaMain)
     const actor = shared.indexOf('<span className="actor-badge">', metaMain)
     const content = shared.indexOf('<div className="timeline-item__content">', meta)
@@ -194,6 +194,7 @@ describe('Work Detail activity item layout', () => {
     expect(actor).toBeGreaterThan(statuses)
     expect(content).toBeGreaterThan(actor)
     expect(shared).toContain("detail.kind !== 'status' && detail.kind !== 'duration' && detail.kind !== 'tool' && detail.kind !== 'workspace'")
+    expect(shared).toContain('runningDuration !== undefined ? <span>{formatWorkHistoryDuration(runningDuration)}</span> : null')
   })
 
 
