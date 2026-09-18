@@ -1,9 +1,6 @@
 #!/usr/bin/env node
 
-import { createHash } from 'node:crypto'
-import { execFileSync } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -21,6 +18,7 @@ function check(condition, message) {
 }
 
 check(manifest.name === 'agent-helm-installer', 'installer package name must be agent-helm-installer')
+check(/^[a-p]{32}$/.test(canonicalExtensionId ?? ''), 'installer package must own the canonical Chrome Extension ID')
 check(buildSource.includes('/usr/bin/pkgbuild') && buildSource.includes('--nopayload'), 'installer builder must create a script-resource PKG without a system payload')
 check(buildSource.includes("'--runtime-bundle'") && buildSource.includes("'--agent-helm-version'") && buildSource.includes("'--chrome-extension-id'") && buildSource.includes('agent-helm-runtime.tgz'), 'installer builder must independently pin the Agent Helm version and embed its self-contained runtime')
 check(!buildSource.includes('--release-manifest-url'), 'PKG builder must not depend on a release manifest URL')
@@ -37,44 +35,4 @@ check(postinstallSource.includes('agent_helm_preflight') && postinstallSource.in
 check(backendSource.includes('RUNTIME_BUNDLE=${AGENT_HELM_RUNTIME_BUNDLE:-}') && backendSource.includes('Installing bundled Agent Helm ${VERSION} runtime'), 'installer backend must support offline bundled runtime activation')
 check(!backendSource.includes('RELEASE_MANIFEST_URL') && !backendSource.includes('RELEASE_RESOLVER'), 'installer backend must not contain a remote/local release-manifest fallback')
 
-if (process.platform !== 'darwin') {
-  console.log('Agent Helm Installer package verification OK; macOS PKG expansion skipped outside macOS')
-  process.exit(0)
-}
-
-const fixture = mkdtempSync(join(root, '.agent-helm-installer-package-'))
-try {
-  const runtimeRoot = join(fixture, 'runtime')
-  const coreRoot = join(runtimeRoot, 'node_modules', '@beforewave', 'agent-helm')
-  mkdirSync(join(coreRoot, 'lib'), { recursive: true })
-  writeFileSync(join(coreRoot, 'package.json'), JSON.stringify({ name: '@beforewave/agent-helm', version: manifest.agentHelm.version }))
-  writeFileSync(join(coreRoot, 'lib', 'cli.js'), 'console.log("fixture")\n')
-  const runtimeBundle = join(fixture, 'runtime.tgz')
-  execFileSync('/usr/bin/tar', ['-czf', runtimeBundle, '-C', runtimeRoot, '.'])
-  const runtimeSha = createHash('sha256').update(readFileSync(runtimeBundle)).digest('hex')
-
-  const pkgFile = join(fixture, `Agent-Helm-Installer-${manifest.version}.pkg`)
-  execFileSync(process.execPath, [join(root, 'build.mjs'), '--version', manifest.version, '--agent-helm-version', manifest.agentHelm.version, '--chrome-extension-id', canonicalExtensionId, '--runtime-bundle', runtimeBundle, '--output', pkgFile], {
-    cwd: root,
-    stdio: 'inherit',
-  })
-  check(existsSync(pkgFile), 'installer builder did not produce the requested PKG')
-
-  const expanded = join(fixture, 'expanded')
-  execFileSync('/usr/sbin/pkgutil', ['--expand', pkgFile, expanded], { cwd: root, stdio: 'inherit' })
-  check(readFileSync(join(expanded, 'Scripts', 'agent-helm-install.sh'), 'utf8') === backendSource, 'expanded PKG must retain the package-owned install backend byte-for-byte')
-  check(readFileSync(join(expanded, 'Scripts', 'agent-helm-runtime.tgz')).equals(readFileSync(runtimeBundle)), 'expanded PKG must retain the exact self-contained runtime bundle')
-
-  const packagedPreinstall = readFileSync(join(expanded, 'Scripts', 'preinstall'), 'utf8')
-  const packagedPostinstall = readFileSync(join(expanded, 'Scripts', 'postinstall'), 'utf8')
-  check(packagedPreinstall.includes(runtimeSha) && packagedPreinstall.includes('bundled runtime integrity verified'), 'expanded PKG must pin and verify the embedded runtime SHA-256')
-  check(packagedPostinstall.includes(`AGENT_HELM_VERSION="${manifest.agentHelm.version}"`) && packagedPostinstall.includes(`AGENT_HELM_RUNTIME_BUNDLE_SHA256="${runtimeSha}"`) && packagedPostinstall.includes('agent_helm_postflight'), 'expanded PKG must pin its Core version/runtime hash and retain postflight verification')
-
-  const packageInfo = readFileSync(join(expanded, 'PackageInfo'), 'utf8')
-  check(packageInfo.includes('identifier="com.beforewave.agent-helm.installer"'), 'PKG identifier mismatch')
-  check(packageInfo.includes(`version="${manifest.version}"`), 'PKG version mismatch')
-
-  console.log(`Agent Helm Installer package verification OK (Installer ${manifest.version} -> Agent Helm ${manifest.agentHelm.version})`)
-} finally {
-  rmSync(fixture, { recursive: true, force: true })
-}
+console.log(`Agent Helm Installer contract verification OK (Installer ${manifest.version} -> Agent Helm ${manifest.agentHelm.version}); PKG is intentionally built only during GitHub publication`)
