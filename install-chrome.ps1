@@ -10,7 +10,7 @@ if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) { throw 'This i
 
 $ReleaseUrl = 'https://github.com/BeforeWave/agent-helm-extensions/releases'
 $TunnelReleaseUrl = 'https://github.com/openai/tunnel-client/releases'
-$ReleaseToolUrl = if ($env:BEFOREWAVE_RELEASE_TOOL_URL) { $env:BEFOREWAVE_RELEASE_TOOL_URL } else { 'https://raw.githubusercontent.com/BeforeWave/agent-helm/main/install-release.ps1' }
+$ReleaseToolUrl = if ($env:BEFOREWAVE_RELEASE_TOOL_URL) { $env:BEFOREWAVE_RELEASE_TOOL_URL } else { 'https://raw.githubusercontent.com/BeforeWave/agent-helm-extensions/main/install-release.ps1' }
 $AgentHelmInstallUrl = if ($env:AGENT_HELM_INSTALL_URL) { $env:AGENT_HELM_INSTALL_URL } else { 'https://raw.githubusercontent.com/BeforeWave/agent-helm/main/install.ps1' }
 $AgentHelmLauncher = Join-Path $HOME '.agent-helm\bin\agent-helm.cmd'
 $ManagedBin = Join-Path $HOME '.agent-helm\bin'
