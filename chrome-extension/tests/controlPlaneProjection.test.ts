@@ -77,7 +77,7 @@ describe('native Core snapshot projection', () => {
       serena: { state: 'running', command: 'serena', installUrl: 'https://github.com/oraios/serena', installCommand: 'uv tool install -p 3.13 serena-agent' },
       tunnelClient: { state: 'running', command: 'tunnel-client', installUrl: 'https://github.com/openai/tunnel-client/releases' },
     })
-    expect(snapshot.agents).toEqual([{ id: 'dsh', name: 'DSH', logo: 'DSH', enabled: true, configurable: true, runtimeState: 'ready' }])
+    expect(snapshot.agents).toEqual([{ id: 'dsh', name: 'DSH', enabled: true, configurable: true, runtimeState: 'ready' }])
     expect(snapshot.settings.map((setting) => [setting.id, setting.enabled, setting.state])).toEqual([
       ['external-agent-lsp', true, 'running'],
       ['local-agent-lsp', true, 'running'],

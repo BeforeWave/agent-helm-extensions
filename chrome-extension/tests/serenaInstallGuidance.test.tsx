@@ -253,6 +253,24 @@ describe('Chrome dependency guidance surfaces', () => {
     expect(html).not.toContain('aria-expanded=')
   })
 
+  it('renders a graphical agent icon separately from the DSH name in expanded Agents', () => {
+    const value = snapshot()
+    value.agents = [{ id: 'dsh', name: 'DSH', enabled: true, configurable: true, runtimeState: 'ready' }]
+    const html = renderToStaticMarkup(
+      <ExtensionSettingsControls
+        snapshot={value}
+        pending={null}
+        includeCoreRow={false}
+        sectionOrder={['agents']}
+        agentsInitiallyExpanded
+        {...callbacks}
+      />,
+    )
+
+    expect(html).toMatch(/popup-subrow__name[^>]*><span class="popup-agent-mark"[^>]*><svg[\s\S]*?<\/svg><\/span>DSH<\/span>/)
+    expect(html).not.toContain('>DSH</span>DSH')
+  })
+
   it('allows an empty Side Panel Agents section to open and explain that no local agent is connected', () => {
     const value = snapshot()
     value.dependencies.serena = { state: 'ready', command: 'serena' }
