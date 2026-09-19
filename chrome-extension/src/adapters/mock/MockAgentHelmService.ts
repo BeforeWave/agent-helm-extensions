@@ -112,7 +112,7 @@ export class MockAgentHelmService implements AgentHelmServiceAdapter {
       tunnelClient: { state: 'running', command: 'tunnel-client', installUrl: 'https://github.com/openai/tunnel-client/releases' },
     },
     agents: [
-      { id: 'dsh', name: 'DSH', logo: 'DSH', enabled: true, configurable: true, runtimeState: 'ready' },
+      { id: 'dsh', name: 'DSH', enabled: true, configurable: true, runtimeState: 'ready' },
     ],
     settings: [
       { id: 'external-agent-lsp', label: 'ChatGPT', kind: 'toggle', enabled: true, configurable: true, state: 'running' },
@@ -135,7 +135,7 @@ export class MockAgentHelmService implements AgentHelmServiceAdapter {
 
   setLocalAgentConnected(connected: boolean): void {
     this.snapshot.agents = connected
-      ? [{ id: 'dsh', name: 'DSH', logo: 'DSH', enabled: true, configurable: true, runtimeState: 'ready' }]
+      ? [{ id: 'dsh', name: 'DSH', enabled: true, configurable: true, runtimeState: 'ready' }]
       : []
   }
 

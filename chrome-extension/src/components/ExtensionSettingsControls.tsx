@@ -6,6 +6,7 @@ import { runtimeStateLabel, t } from '../locale'
 import type { CapabilityKey, DependencyName } from '../models/controlPlane'
 import extensionManifest from '../../package.json'
 import { agentHelmInstallerSourceForRelease, agentHelmMacosInstallerFilename, tunnelOnboardingSource, tunnelSetupCanSubmit, type TunnelSetupValues } from '../ui-contract'
+import { AgentIcon } from './Icons'
 
 import { Accordion } from '../components/Accordion'
 
@@ -165,18 +166,11 @@ export function CoreSettingControl({
   )
 }
 
-function agentLogoLabel(agent: { id: string; name: string; logo?: string }): string {
-  if (agent.logo) return agent.logo
-  const words = agent.name.trim().split(/\s+/).filter(Boolean)
-  if (words.length > 1) return words.slice(0, 2).map((word) => word[0]).join('').toUpperCase()
-  return (words[0] ?? agent.id).slice(0, 3).toUpperCase()
-}
-
-function AgentSummary({ agents }: { agents: Array<{ id: string; name: string; logo?: string }> }): React.JSX.Element {
+function AgentSummary({ agents }: { agents: Array<{ id: string; name: string }> }): React.JSX.Element {
   return (
     <span className="popup-agent-summary" aria-hidden="true">
       {agents.map((agent) => (
-        <span key={agent.id} className="popup-agent-mark" title={agent.name}>{agentLogoLabel(agent)}</span>
+        <span key={agent.id} className="popup-agent-mark" title={agent.name}><AgentIcon /></span>
       ))}
     </span>
   )
@@ -406,7 +400,7 @@ export function ExtensionSettingsControls({
           ) : (snapshot?.agents ?? []).map((agent) => (
             <div key={agent.id} className="popup-subrow">
               <span className="popup-subrow__name">
-                <span className="popup-agent-mark" aria-hidden="true">{agentLogoLabel(agent)}</span>
+                <span className="popup-agent-mark" aria-hidden="true"><AgentIcon /></span>
                 {agent.name}
               </span>
               <Switch

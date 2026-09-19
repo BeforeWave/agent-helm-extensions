@@ -84,7 +84,6 @@ export function deriveExtensionConnectionPresentation(
 export interface AgentState {
   id: string
   name: string
-  logo?: string
   enabled: boolean
   configurable: boolean
   runtimeState: RuntimeState

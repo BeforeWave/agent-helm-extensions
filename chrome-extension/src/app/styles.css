@@ -109,6 +109,11 @@ button.popup-setting-row:hover .popup-panel-entry__arrow { background: var(--hel
 .agent-summary { min-width: 0; display: inline-flex; align-items: center; justify-content: flex-end; gap: 4px; }
 .agent-logo { width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; flex: none; border: 1px solid var(--helm-border-strong); border-radius: 7px; background: var(--helm-hover); color: inherit; font-size: 8px; line-height: 1; font-weight: 750; letter-spacing: -.02em; }
 .agent-logo--row { width: 20px; height: 20px; border-radius: 6px; font-size: 7px; }
+.popup-agent-summary { min-width: 0; display: inline-flex; align-items: center; justify-content: flex-end; gap: 4px; }
+.popup-agent-mark { width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; flex: none; border: 1px solid var(--helm-border-strong); border-radius: 7px; background: var(--helm-hover); color: var(--helm-secondary); }
+.popup-agent-mark svg { width: 15px; height: 15px; display: block; }
+.popup-subrow__name > .popup-agent-mark { width: 20px; height: 20px; margin-right: 7px; border-radius: 6px; }
+.popup-subrow__name > .popup-agent-mark svg { width: 14px; height: 14px; }
 .popup-expand { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border-radius: 7px; color: #8a8e96; }
 .popup-capability-row:hover .popup-expand { background: var(--helm-hover); color: #34373d; }
 .popup-group-body { position: relative; }

@@ -137,7 +137,6 @@ export function projectNativeSnapshot(healthValue: unknown, summariesValue: unkn
     return {
       id,
       name,
-      ...(id === 'dsh' ? { logo: 'DSH' } : {}),
       enabled: booleanValue(adapter.delegationEnabled),
       configurable: true,
       runtimeState: runtimeStateFromAdapter(adapterHealth, coreRunning),
