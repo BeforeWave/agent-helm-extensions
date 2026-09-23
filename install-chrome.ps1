@@ -92,6 +92,47 @@ function Remote-Script([string]$Uri) {
   return [scriptblock]::Create($source)
 }
 
+function Install-ChromeExtensionArchive([string]$Zip, [string]$Destination) {
+  # Keep staging and destination on the same volume so activation is a rename.
+  $parent = [System.IO.Path]::GetDirectoryName($Destination)
+  $id = [guid]::NewGuid().ToString('N')
+  $stage = Join-Path $parent "Agent-Helm-Chrome-Extension.stage.$id"
+  $backup = "$Destination.previous.$id"
+  $movedExisting = $false
+  try {
+    New-Item -ItemType Directory -Path $stage -Force | Out-Null
+    Expand-Archive -LiteralPath $Zip -DestinationPath $stage -Force
+    if (-not (Test-Path -LiteralPath (Join-Path $stage 'manifest.json') -PathType Leaf)) {
+      Fail 'Chrome Extension archive does not contain manifest.json'
+    }
+    if (Test-Path -LiteralPath $Destination) {
+      Move-Item -LiteralPath $Destination -Destination $backup -ErrorAction Stop
+      $movedExisting = $true
+    }
+    try {
+      Move-Item -LiteralPath $stage -Destination $Destination -ErrorAction Stop
+    } catch {
+      $activationError = $_
+      if (Test-Path -LiteralPath $Destination) {
+        Remove-Item -LiteralPath $Destination -Recurse -Force -ErrorAction Stop
+      }
+      if ($movedExisting) {
+        Move-Item -LiteralPath $backup -Destination $Destination -ErrorAction Stop
+        $movedExisting = $false
+      }
+      throw $activationError
+    }
+    if ($movedExisting) {
+      # A failed backup cleanup must not report an otherwise successful install
+      # as failed; retain the old directory for manual removal in that case.
+      try { Remove-Item -LiteralPath $backup -Recurse -Force -ErrorAction Stop }
+      catch { Write-Warning "Chrome Extension updated; could not remove old directory: $backup" }
+    }
+  } finally {
+    Remove-Item -LiteralPath $stage -Recurse -Force -ErrorAction SilentlyContinue
+  }
+}
+
 $ReleaseTool = Remote-Script $ReleaseToolUrl
 $Version = (& $ReleaseTool resolve -ReleaseUrl $ReleaseUrl -Version $Version | Select-Object -Last 1).Trim()
 $AgentHelmProductVersion = (& $ReleaseTool field -ReleaseUrl $ReleaseUrl -Version $Version -Field 'agentHelmVersion' | Select-Object -Last 1).Trim()
@@ -106,14 +147,13 @@ New-Item -ItemType Directory -Path $downloads, $temp -Force | Out-Null
 try {
   $zip = Join-Path $temp 'extension.zip'
   & $ReleaseTool download -ReleaseUrl $ReleaseUrl -Version $Version -ArtifactId 'agent-helm-chrome-extension' -Output $zip
-  Remove-Item -LiteralPath $destination -Recurse -Force -ErrorAction SilentlyContinue
-  Expand-Archive -LiteralPath $zip -DestinationPath $destination -Force
+  Install-ChromeExtensionArchive -Zip $zip -Destination $destination
 } finally {
   Remove-Item -LiteralPath $temp -Recurse -Force -ErrorAction SilentlyContinue
 }
 
 Stage 2 'Runtime / Node'
-Write-Host 'Agent Helm installer will reuse Node.js 22+ or install its managed win-x64 runtime.'
+Write-Host 'Agent Helm installer will reuse Node.js 24+ or install its managed win-x64 runtime.'
 
 Stage 3 "Agent Helm $AgentHelmProductVersion from Release v$AgentHelmReleaseVersion"
 $AgentHelmInstall = Remote-Script $AgentHelmInstallUrl
@@ -162,6 +202,8 @@ $chromeCandidates = @(
 if (${env:ProgramFiles(x86)}) { $chromeCandidates += (Join-Path ${env:ProgramFiles(x86)} 'Google\Chrome\Application\chrome.exe') }
 $chrome = $chromeCandidates | Where-Object { $_ -and (Test-Path -LiteralPath $_) } | Select-Object -First 1
 if ($chrome) {
-  Start-Process -FilePath $chrome -ArgumentList 'chrome://extensions' | Out-Null
+  try { Start-Process -FilePath $chrome -ArgumentList 'chrome://extensions' | Out-Null }
+  catch { Write-Warning "Chrome Extension installed; could not open Chrome: $($_.Exception.Message)" }
 }
-Start-Process -FilePath 'explorer.exe' -ArgumentList @($destination) | Out-Null
+try { Start-Process -FilePath 'explorer.exe' -ArgumentList @($destination) | Out-Null }
+catch { Write-Warning "Chrome Extension installed; could not open its folder: $($_.Exception.Message)" }
