@@ -11,7 +11,7 @@ PREFIX=${AGENT_HELM_INSTALL_PREFIX:-$HOME/.agent-helm/npm}
 NODE_VERSION=${AGENT_HELM_NODE_VERSION:-}
 NODE_RUNTIME_ROOT=$HOME/.agent-helm/runtime/node
 NODE_CURRENT=$NODE_RUNTIME_ROOT/current
-MIN_NODE_MAJOR=24
+REQUIRED_NODE_MAJOR=24
 
 fail() {
   printf "%s\n" "Agent Helm installer: $1" >&2
@@ -35,7 +35,7 @@ node_major() {
 }
 
 usable_node() {
-  [ -n "${1:-}" ] && [ -x "$1" ] && [ "$(node_major "$1")" -ge "$MIN_NODE_MAJOR" ]
+  [ -n "${1:-}" ] && [ -x "$1" ] && [ "$(node_major "$1")" -eq "$REQUIRED_NODE_MAJOR" ]
 }
 
 system_node() {
@@ -113,7 +113,7 @@ NODE_BIN_DIR=${NODE_BIN%/*}
 PATH="$NODE_BIN_DIR:${PATH:-/usr/bin:/bin}"
 export PATH
 if [ -z "$RUNTIME_BUNDLE" ]; then
-  if ! command -v npm >/dev/null 2>&1; then
+  if [ ! -x "$NODE_BIN_DIR/npm" ]; then
     if [ "$NODE_BIN" != "$MANAGED_NODE" ]; then
       printf "%s\n" "Agent Helm: the existing Node.js runtime does not provide npm; switching to the managed runtime."
       if ! usable_node "$MANAGED_NODE"; then install_managed_node; fi
@@ -123,7 +123,7 @@ if [ -z "$RUNTIME_BUNDLE" ]; then
       export PATH
     fi
   fi
-  command -v npm >/dev/null 2>&1 || fail "npm was not found next to the selected Node.js runtime."
+  [ -x "$NODE_BIN_DIR/npm" ] || fail "npm was not found next to the selected Node.js runtime."
 fi
 
 mkdir -p "$HOME/.agent-helm" "$HOME/.agent-helm/bin"
@@ -166,12 +166,12 @@ MANAGED_NODE="$NODE_CURRENT/bin/node"
 FALLBACK_NODE="$NODE_BIN"
 CLI_JS="$CLI_JS"
 node_ok() {
-  [ -x "\$1" ] && [ "\$("\$1" -p 'Number(process.versions.node.split(".")[0])' 2>/dev/null || printf 0)" -ge 24 ]
+  [ -x "\$1" ] && [ "\$("\$1" -p 'Number(process.versions.node.split(".")[0])' 2>/dev/null || printf 0)" -eq 24 ]
 }
 if node_ok "\$MANAGED_NODE"; then NODE_BIN="\$MANAGED_NODE"
 elif command -v node >/dev/null 2>&1 && node_ok "\$(command -v node)"; then NODE_BIN="\$(command -v node)"
 elif node_ok "\$FALLBACK_NODE"; then NODE_BIN="\$FALLBACK_NODE"
-else printf '%s\n' 'Agent Helm: Node.js 24+ runtime is unavailable; reinstall Agent Helm.' >&2; exit 127
+else printf '%s\n' 'Agent Helm: Node.js 24 runtime is unavailable; reinstall Agent Helm.' >&2; exit 127
 fi
 exec "\$NODE_BIN" "\$CLI_JS" "\$@"
 LAUNCHER
