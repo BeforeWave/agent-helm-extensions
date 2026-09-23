@@ -153,7 +153,7 @@ try {
 }
 
 Stage 2 'Runtime / Node'
-Write-Host 'Agent Helm installer will reuse Node.js 24+ or install its managed win-x64 runtime.'
+Write-Host 'Agent Helm installer will reuse Node.js 24.x or install its managed win-x64 runtime.'
 
 Stage 3 "Agent Helm $AgentHelmProductVersion from Release v$AgentHelmReleaseVersion"
 $AgentHelmInstall = Remote-Script $AgentHelmInstallUrl

@@ -158,7 +158,7 @@ fi
 trap - EXIT HUP INT TERM
 rm -rf "$ROOT"
 
-if command -v node >/dev/null 2>&1 && [ "$(node -p 'Number(process.versions.node.split(".")[0])' 2>/dev/null || printf 0)" -ge 24 ]; then
+if command -v node >/dev/null 2>&1 && [ "$(node -p 'Number(process.versions.node.split(".")[0])' 2>/dev/null || printf 0)" -eq 24 ]; then
   stage 2 "Runtime / Node: using existing $(node --version 2>/dev/null || printf 'Node.js')"
 else
   stage 2 "Runtime / Node: Agent Helm will install its managed Node runtime"
