@@ -10,7 +10,7 @@
     "build:windows": "node build-windows-cmd.mjs"
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=24"
   },
   "agentHelm": {
     "version": "0.1.5"

@@ -8,11 +8,10 @@ VERSION=${AGENT_HELM_VERSION:-latest}
 RUNTIME_BUNDLE=${AGENT_HELM_RUNTIME_BUNDLE:-}
 RUNTIME_BUNDLE_SHA256=${AGENT_HELM_RUNTIME_BUNDLE_SHA256:-}
 PREFIX=${AGENT_HELM_INSTALL_PREFIX:-$HOME/.agent-helm/npm}
-NODE_VERSION=22.23.2
+NODE_VERSION=${AGENT_HELM_NODE_VERSION:-}
 NODE_RUNTIME_ROOT=$HOME/.agent-helm/runtime/node
-NODE_RUNTIME_DIR=$NODE_RUNTIME_ROOT/v$NODE_VERSION
 NODE_CURRENT=$NODE_RUNTIME_ROOT/current
-MIN_NODE_MAJOR=22
+MIN_NODE_MAJOR=24
 
 fail() {
   printf "%s\n" "Agent Helm installer: $1" >&2
@@ -57,17 +56,24 @@ install_managed_node() {
   command -v curl >/dev/null 2>&1 || fail "curl is required to download the managed Node.js runtime."
   command -v tar >/dev/null 2>&1 || fail "tar is required to install the managed Node.js runtime."
 
-  ASSET=node-v${NODE_VERSION}-${NODE_OS}-${NODE_ARCH}.${NODE_EXT}
-  BASE=https://nodejs.org/dist/v${NODE_VERSION}
+  BASE=https://nodejs.org/dist/latest-v24.x
+  if [ -n "$NODE_VERSION" ]; then
+    printf '%s\n' "$NODE_VERSION" | grep -Eq '^24\.[0-9]+\.[0-9]+$' || fail "AGENT_HELM_NODE_VERSION must be an exact Node.js 24 version."
+    BASE=https://nodejs.org/dist/v${NODE_VERSION}
+  fi
   TMP_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/agent-helm-node.XXXXXX")
   trap 'rm -rf "$TMP_ROOT"' EXIT HUP INT TERM
-  ARCHIVE=$TMP_ROOT/$ASSET
   SHASUMS=$TMP_ROOT/SHASUMS256.txt
-
-  printf "%s\n" "Agent Helm: Node.js ${NODE_VERSION} is required; downloading the managed runtime from nodejs.org..."
-  curl -fL --retry 2 --connect-timeout 15 "$BASE/$ASSET" -o "$ARCHIVE"
   curl -fL --retry 2 --connect-timeout 15 "$BASE/SHASUMS256.txt" -o "$SHASUMS"
-
+  if [ -z "$NODE_VERSION" ]; then
+    NODE_VERSION=$(awk -v suffix="-${NODE_OS}-${NODE_ARCH}.${NODE_EXT}" '$2 ~ /^\*?node-v24[.][0-9]+[.][0-9]+-/ && substr($2, length($2)-length(suffix)+1) == suffix { v=$2; sub(/^\*?node-v/, "", v); print substr(v, 1, length(v)-length(suffix)); exit }' "$SHASUMS")
+    printf '%s\n' "$NODE_VERSION" | grep -Eq '^24\.[0-9]+\.[0-9]+$' || fail "Official Node.js 24 checksum list has no matching runtime."
+  fi
+  NODE_RUNTIME_DIR=$NODE_RUNTIME_ROOT/v$NODE_VERSION
+  ASSET=node-v${NODE_VERSION}-${NODE_OS}-${NODE_ARCH}.${NODE_EXT}
+  ARCHIVE=$TMP_ROOT/$ASSET
+  printf '%s\n' "Agent Helm: Node.js ${NODE_VERSION} is required; downloading the managed runtime from nodejs.org..."
+  curl -fL --retry 2 --connect-timeout 15 "$BASE/$ASSET" -o "$ARCHIVE"
   EXPECTED=$(awk -v asset="$ASSET" '$2 == asset || $2 == "*" asset { print $1; exit }' "$SHASUMS")
   [ -n "$EXPECTED" ] || fail "Node.js SHASUMS256.txt does not contain $ASSET."
   ACTUAL=$(checksum_file "$ARCHIVE")
@@ -160,12 +166,12 @@ MANAGED_NODE="$NODE_CURRENT/bin/node"
 FALLBACK_NODE="$NODE_BIN"
 CLI_JS="$CLI_JS"
 node_ok() {
-  [ -x "\$1" ] && [ "\$("\$1" -p 'Number(process.versions.node.split(".")[0])' 2>/dev/null || printf 0)" -ge 22 ]
+  [ -x "\$1" ] && [ "\$("\$1" -p 'Number(process.versions.node.split(".")[0])' 2>/dev/null || printf 0)" -ge 24 ]
 }
 if node_ok "\$MANAGED_NODE"; then NODE_BIN="\$MANAGED_NODE"
 elif command -v node >/dev/null 2>&1 && node_ok "\$(command -v node)"; then NODE_BIN="\$(command -v node)"
 elif node_ok "\$FALLBACK_NODE"; then NODE_BIN="\$FALLBACK_NODE"
-else printf '%s\n' 'Agent Helm: Node.js 22+ runtime is unavailable; reinstall Agent Helm.' >&2; exit 127
+else printf '%s\n' 'Agent Helm: Node.js 24+ runtime is unavailable; reinstall Agent Helm.' >&2; exit 127
 fi
 exec "\$NODE_BIN" "\$CLI_JS" "\$@"
 LAUNCHER
