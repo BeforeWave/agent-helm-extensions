@@ -33,7 +33,7 @@
     "wxt": "latest"
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=24"
   },
   "agentHelm": {
     "version": "0.1.5"
