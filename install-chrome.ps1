@@ -169,8 +169,16 @@ New-Item -ItemType Directory -Path $coreManifestDirectory -Force | Out-Null
 $coreManifestPath = Join-Path $coreManifestDirectory 'release-manifest.json'
 try {
   $resolvedCore = (& $ReleaseTool resolve -ReleaseUrl $CoreReleaseUrl -Version $AgentHelmReleaseVersion -ManifestPath $coreManifestPath | Select-Object -Last 1).Trim()
-  $resolvedProduct = (& $ReleaseTool field -ReleaseUrl $CoreReleaseUrl -Version $resolvedCore -Field 'agentHelmVersion' -ManifestPath $coreManifestPath | Select-Object -Last 1).Trim()
-  if ($resolvedCore -cne $AgentHelmReleaseVersion -or $resolvedProduct -cne $AgentHelmProductVersion) {
+  # The Core release manifest has no root agentHelmVersion field. The pinned
+  # product identity/version is on the agent-helm-package artifact.
+  $coreManifest = [System.IO.File]::ReadAllText($coreManifestPath) | ConvertFrom-Json -ErrorAction Stop
+  $corePackages = @($coreManifest.artifacts | Where-Object { $_.id -ceq 'agent-helm-package' })
+  if (
+    $resolvedCore -cne $AgentHelmReleaseVersion -or
+    $corePackages.Count -ne 1 -or
+    $corePackages[0].name -cne '@beforewave/agent-helm' -or
+    $corePackages[0].version -cne $AgentHelmProductVersion
+  ) {
     Fail 'Core Release manifest does not match Chrome Extension Agent Helm pin'
   }
   $AgentHelmInstall = Remote-Script $AgentHelmInstallUrl
