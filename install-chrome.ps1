@@ -9,6 +9,7 @@ $ErrorActionPreference = 'Stop'
 if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) { throw 'This installer supports Windows only.' }
 
 $ReleaseUrl = 'https://github.com/BeforeWave/agent-helm-extensions/releases'
+$CoreReleaseUrl = 'https://github.com/BeforeWave/agent-helm/releases'
 $TunnelReleaseUrl = 'https://github.com/openai/tunnel-client/releases'
 $ReleaseToolUrl = if ($env:BEFOREWAVE_RELEASE_TOOL_URL) { $env:BEFOREWAVE_RELEASE_TOOL_URL } else { 'https://raw.githubusercontent.com/BeforeWave/agent-helm-extensions/main/install-release.ps1' }
 $AgentHelmInstallUrl = if ($env:AGENT_HELM_INSTALL_URL) { $env:AGENT_HELM_INSTALL_URL } else { 'https://raw.githubusercontent.com/BeforeWave/agent-helm/main/install.ps1' }
@@ -87,7 +88,13 @@ function Find-Serena {
 }
 
 function Remote-Script([string]$Uri) {
-  $source = (Invoke-WebRequest -UseBasicParsing -Uri $Uri).Content
+  $response = Invoke-WebRequest -UseBasicParsing -Uri $Uri
+  $source = if ($response.Content -is [byte[]]) {
+    [System.Text.Encoding]::UTF8.GetString($response.Content)
+  } else {
+    [string]$response.Content
+  }
+  $source = $source.TrimStart([char]0xFEFF)
   if ([string]::IsNullOrWhiteSpace($source)) { Fail "downloaded script is empty: $Uri" }
   return [scriptblock]::Create($source)
 }
@@ -134,19 +141,20 @@ function Install-ChromeExtensionArchive([string]$Zip, [string]$Destination) {
 }
 
 $ReleaseTool = Remote-Script $ReleaseToolUrl
-$Version = (& $ReleaseTool resolve -ReleaseUrl $ReleaseUrl -Version $Version | Select-Object -Last 1).Trim()
-$AgentHelmProductVersion = (& $ReleaseTool field -ReleaseUrl $ReleaseUrl -Version $Version -Field 'agentHelmVersion' | Select-Object -Last 1).Trim()
-$AgentHelmReleaseVersion = (& $ReleaseTool field -ReleaseUrl $ReleaseUrl -Version $Version -Field 'agentHelmReleaseVersion' | Select-Object -Last 1).Trim()
-Write-Host "Agent Helm Chrome: Release v$Version -> Agent Helm v$AgentHelmReleaseVersion -> $AgentHelmProductVersion"
-
-Stage 1 "Chrome Extension ${Version}: download and verify"
 $downloads = Join-Path $HOME 'Downloads'
 $destination = Join-Path $downloads 'Agent-Helm-Chrome-Extension'
 $temp = Join-Path ([System.IO.Path]::GetTempPath()) ("agent-helm-chrome-" + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $downloads, $temp -Force | Out-Null
+$manifestPath = Join-Path $temp 'release-manifest.json'
 try {
+  $Version = (& $ReleaseTool resolve -ReleaseUrl $ReleaseUrl -Version $Version -ManifestPath $manifestPath | Select-Object -Last 1).Trim()
+  $AgentHelmProductVersion = (& $ReleaseTool field -ReleaseUrl $ReleaseUrl -Version $Version -Field 'agentHelmVersion' -ManifestPath $manifestPath | Select-Object -Last 1).Trim()
+  $AgentHelmReleaseVersion = (& $ReleaseTool field -ReleaseUrl $ReleaseUrl -Version $Version -Field 'agentHelmReleaseVersion' -ManifestPath $manifestPath | Select-Object -Last 1).Trim()
+  Write-Host "Agent Helm Chrome: Release v$Version -> Agent Helm v$AgentHelmReleaseVersion -> $AgentHelmProductVersion"
+
+  Stage 1 "Chrome Extension $($Version): download and verify"
   $zip = Join-Path $temp 'extension.zip'
-  & $ReleaseTool download -ReleaseUrl $ReleaseUrl -Version $Version -ArtifactId 'agent-helm-chrome-extension' -Output $zip
+  & $ReleaseTool download -ReleaseUrl $ReleaseUrl -Version $Version -ArtifactId 'agent-helm-chrome-extension' -Output $zip -ManifestPath $manifestPath
   Install-ChromeExtensionArchive -Zip $zip -Destination $destination
 } finally {
   Remove-Item -LiteralPath $temp -Recurse -Force -ErrorAction SilentlyContinue
@@ -156,9 +164,21 @@ Stage 2 'Runtime / Node'
 Write-Host 'Agent Helm installer will reuse Node.js 24.x or install its managed win-x64 runtime.'
 
 Stage 3 "Agent Helm $AgentHelmProductVersion from Release v$AgentHelmReleaseVersion"
-$AgentHelmInstall = Remote-Script $AgentHelmInstallUrl
-& $AgentHelmInstall -Version $AgentHelmReleaseVersion -ChromeExtensionId $ExtensionId
-if ($LASTEXITCODE -ne 0) { Fail "Agent Helm $AgentHelmProductVersion installation from Release v$AgentHelmReleaseVersion failed" }
+$coreManifestDirectory = Join-Path ([System.IO.Path]::GetTempPath()) ("agent-helm-core-manifest-" + [guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $coreManifestDirectory -Force | Out-Null
+$coreManifestPath = Join-Path $coreManifestDirectory 'release-manifest.json'
+try {
+  $resolvedCore = (& $ReleaseTool resolve -ReleaseUrl $CoreReleaseUrl -Version $AgentHelmReleaseVersion -ManifestPath $coreManifestPath | Select-Object -Last 1).Trim()
+  $resolvedProduct = (& $ReleaseTool field -ReleaseUrl $CoreReleaseUrl -Version $resolvedCore -Field 'agentHelmVersion' -ManifestPath $coreManifestPath | Select-Object -Last 1).Trim()
+  if ($resolvedCore -cne $AgentHelmReleaseVersion -or $resolvedProduct -cne $AgentHelmProductVersion) {
+    Fail 'Core Release manifest does not match Chrome Extension Agent Helm pin'
+  }
+  $AgentHelmInstall = Remote-Script $AgentHelmInstallUrl
+  & $AgentHelmInstall -Version $AgentHelmReleaseVersion -ChromeExtensionId $ExtensionId -ReleaseManifestPath $coreManifestPath
+  if ($LASTEXITCODE -ne 0) { Fail "Agent Helm $AgentHelmProductVersion installation from Release v$AgentHelmReleaseVersion failed" }
+} finally {
+  Remove-Item -LiteralPath $coreManifestDirectory -Recurse -Force -ErrorAction SilentlyContinue
+}
 
 Stage 4 'OpenAI tunnel-client'
 $ExistingTunnelClient = Find-TunnelClient
