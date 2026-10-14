@@ -8,9 +8,13 @@
 
 **Say goodbye to copy-pasting and Token quota anxiety. Let ChatGPT on the web connect directly to your local project, run code, and bring in other Agents when needed.**
 
+**Supports macOS and Windows x64:** Agent Helm and the Native Messaging Bridge install natively on Windows without WSL2. The extension supports Chromium browsers compatible with Chrome extensions.
+
 [![Release](https://img.shields.io/github/v/release/BeforeWave/agent-helm-extensions?color=blue\&style=flat-square)](https://github.com/BeforeWave/agent-helm-extensions/releases)
 [![Chrome](https://img.shields.io/badge/Chrome-Extension-green?logo=googlechrome\&style=flat-square)](#-quick-start)
 [![License](https://img.shields.io/github/license/BeforeWave/agent-helm-extensions?style=flat-square)](./LICENSE)
+
+![macOS](https://img.shields.io/badge/macOS-supported-2ea44f?style=flat-square) ![Windows](https://img.shields.io/badge/Windows-supported-2ea44f?style=flat-square)
 
 </div>
 

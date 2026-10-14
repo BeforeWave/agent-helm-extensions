@@ -8,9 +8,13 @@
 
 **告别复制粘贴与Token额度焦虑！让网页版 ChatGPT 直连本地项目、运行代码，按需调度其他Agent。**
 
+**支持 macOS 和 Windows x64：** Windows 可原生安装 Agent Helm 和 Native Messaging Bridge，无需 WSL2；扩展兼容支持 Chrome Extension 的 Chromium 内核浏览器。
+
 [![Release](https://img.shields.io/github/v/release/BeforeWave/agent-helm-extensions?color=blue\&style=flat-square)](https://github.com/BeforeWave/agent-helm-extensions/releases)
 [![Chrome](https://img.shields.io/badge/Chrome-Extension-green?logo=googlechrome\&style=flat-square)](#-快速开始)
 [![License](https://img.shields.io/github/license/BeforeWave/agent-helm-extensions?style=flat-square)](./LICENSE)
+
+![macOS](https://img.shields.io/badge/macOS-supported-2ea44f?style=flat-square) ![Windows](https://img.shields.io/badge/Windows-supported-2ea44f?style=flat-square)
 
 </div>
 
