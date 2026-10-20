@@ -296,7 +296,7 @@ describe('browser service helpers', () => {
           install: {
             automatic: true,
             url: 'https://github.com/oraios/serena',
-            command: 'uv tool install -p 3.13 serena-agent',
+            command: 'uv tool install --force -p 3.13 serena-agent==1.7.0',
           },
         },
         tunnelClient: {
@@ -334,7 +334,7 @@ describe('browser service helpers', () => {
     expect(snapshot.dependencies.serena).toMatchObject({
       state: 'ready',
       command: 'serena',
-      installCommand: 'uv tool install -p 3.13 serena-agent',
+      installCommand: 'uv tool install --force -p 3.13 serena-agent==1.7.0',
     })
   })
 
