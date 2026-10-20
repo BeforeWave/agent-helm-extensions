@@ -41,6 +41,7 @@ export function buildInstallerRuntimeBundle({
   bundledWorkspacePackages = [],
 }) {
   const resolvedNodeModulesRoot = realpathSync(nodeModulesRoot)
+  const coreLocalNodeModules = join(realpathSync(coreSourceDir), 'node_modules')
   const staging = mkdtempSync(join(process.env.TMPDIR || tmpdir(), 'agent-helm-installer-runtime-'))
   const runtimeNodeModules = join(staging, 'node_modules')
   const bundledWorkspaceSet = new Set(bundledWorkspacePackages)
@@ -65,9 +66,16 @@ export function buildInstallerRuntimeBundle({
       }
       if (copied.has(source)) continue
 
-      const relativeSource = relative(resolvedNodeModulesRoot, source)
-      if (!relativeSource || relativeSource === '..' || relativeSource.startsWith(`..${sep}`)) {
-        throw new Error(`installer runtime dependency resolved outside root node_modules: ${name} -> ${source}`)
+      const relativeRoot = relative(resolvedNodeModulesRoot, source)
+      const relativeCore = relative(coreLocalNodeModules, source)
+      const within = (value) => value && value !== '..' && !value.startsWith(`..${sep}`)
+      const relativeSource = within(relativeRoot)
+        ? relativeRoot
+        : within(relativeCore)
+          ? join(...packageName.split('/'), 'node_modules', relativeCore)
+          : undefined
+      if (!relativeSource) {
+        throw new Error(`installer runtime dependency resolved outside managed node_modules: ${name} -> ${source}`)
       }
       const destination = join(runtimeNodeModules, relativeSource)
       mkdirSync(dirname(destination), { recursive: true })
