@@ -95,6 +95,7 @@ export function projectNativeSnapshot(healthValue: unknown, summariesValue: unkn
   const coreConfigurable = booleanValue(lifecycle.configurable)
   const policy = record(health.externalCapabilities)
   const access = record(health.externalUserAccess)
+  const configurable = record(health.externalAccessConfigurable)
   const supportsUnderstand = booleanValue(policy.command) || booleanValue(policy.semantic)
   const supportsCode = supportsUnderstand && !booleanValue(policy.read_only)
   const supportsCommand = booleanValue(policy.delegate)
@@ -169,9 +170,9 @@ export function projectNativeSnapshot(healthValue: unknown, summariesValue: unkn
   return {
     connection: { state: 'connected' },
     capabilities: {
-      understand: { enabled: understandEnabled, available: supportsUnderstand },
-      code: { enabled: codeEnabled, available: supportsCode },
-      command: { enabled: commandEnabled, available: supportsCommand },
+      understand: { enabled: understandEnabled, available: supportsUnderstand, ...(typeof configurable.enabled === 'boolean' ? { configurable: configurable.enabled } : {}) },
+      code: { enabled: codeEnabled, available: supportsCode, ...(typeof configurable.mutations === 'boolean' ? { configurable: configurable.mutations } : {}) },
+      command: { enabled: commandEnabled, available: supportsCommand, ...(typeof configurable.delegation === 'boolean' ? { configurable: configurable.delegation } : {}) },
     },
     dependencies,
     agents,
