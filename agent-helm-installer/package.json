@@ -1,6 +1,6 @@
 {
   "name": "agent-helm-installer",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "type": "module",
   "scripts": {
@@ -13,7 +13,7 @@
     "node": ">=24"
   },
   "agentHelm": {
-    "version": "0.1.5"
+    "version": "0.1.6"
   },
   "chromeExtension": {
     "id": "eigfmmjccbiinngdfifjkpmofandcgif"
