@@ -128,7 +128,7 @@ VERSION=$(release_tool resolve --release-url "$RELEASE_URL" --version "$VERSION"
   || fail "Could not resolve Chrome Extension GitHub Release version."
 AGENT_HELM_PRODUCT_VERSION=$(release_tool field --release-url "$RELEASE_URL" --version "$VERSION" --field agentHelmVersion) \
   || fail "Could not resolve the Agent Helm product version pinned by Chrome Extension Release v$VERSION."
-AGENT_HELM_RELEASE_VERSION=$(release_tool field --release-url "$RELEASE_URL" --version "$VERSION" --field agentHelmReleaseVersion) \
+AGENT_HELM_RELEASE_VERSION=$(release_tool field --release-url "$RELEASE_URL" --version "$VERSION" --field agentHelmReleaseVersion --fallback-field agentHelmVersion) \
   || fail "Could not resolve the Agent Helm release pinned by Chrome Extension Release v$VERSION."
 printf '%s\n' "Agent Helm Chrome: Release v$VERSION -> Extension/Installer artifact ${VERSION%-dev}; Agent Helm v$AGENT_HELM_RELEASE_VERSION -> $AGENT_HELM_PRODUCT_VERSION"
 
