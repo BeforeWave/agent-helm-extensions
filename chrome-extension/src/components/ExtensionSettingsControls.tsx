@@ -363,7 +363,7 @@ export function ExtensionSettingsControls({
                 <span className="popup-subrow__name"><span aria-hidden="true">{definition.icon}</span>{t(definition.labelKey)}</span>
                 <Switch
                   checked={state?.enabled ?? false}
-                  disabled={childControlsDisabled || !state?.available || pending !== null}
+                  disabled={childControlsDisabled || !state?.available || state.configurable === false || pending !== null}
                   label={t(definition.toggleKey)}
                   onChange={(enabled) => onCapabilityChange(definition.key, enabled)}
                 />

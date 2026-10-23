@@ -46,7 +46,7 @@ describe('Chrome dependency guidance surfaces', () => {
   it('keeps missing Serena status-only on the Code Sense parent in Popup', () => {
     const html = renderToStaticMarkup(
       <ExtensionSettingsControls
-        snapshot={snapshot('uv tool install -p 3.13 serena-agent')}
+        snapshot={snapshot('uv tool install --force -p 3.13 serena-agent==1.7.0')}
         pending={null}
         includeCoreRow={false}
         sectionOrder={['code-sense']}
@@ -57,7 +57,7 @@ describe('Chrome dependency guidance surfaces', () => {
     expect(html).toContain('data-state="error"')
     expect(html).toMatch(/class="accordion__label"><span class="accordion__title">Code Sense<\/span><span class="popup-runtime-state"/)
     expect(html).toContain('title="Semantic tools are unavailable:')
-    expect(html).not.toContain('uv tool install -p 3.13 serena-agent')
+    expect(html).not.toContain('uv tool install --force -p 3.13 serena-agent==1.7.0')
     expect(html).not.toContain('>Run<')
     expect(html).not.toContain('>Manual setup<')
   })
@@ -65,7 +65,7 @@ describe('Chrome dependency guidance surfaces', () => {
   it('forces Serena-dependent child switches visually off and disabled while Serena is unavailable', () => {
     const html = renderToStaticMarkup(
       <ExtensionSettingsControls
-        snapshot={snapshot('uv tool install -p 3.13 serena-agent')}
+        snapshot={snapshot('uv tool install --force -p 3.13 serena-agent==1.7.0')}
         pending={null}
         includeCoreRow={false}
         dependencySetupMode="expandable"
@@ -85,7 +85,7 @@ describe('Chrome dependency guidance surfaces', () => {
   it('uses Code Sense as one group with ChatGPT and Local Agents sub-settings', () => {
     const collapsed = renderToStaticMarkup(
       <ExtensionSettingsControls
-        snapshot={snapshot('uv tool install -p 3.13 serena-agent')}
+        snapshot={snapshot('uv tool install --force -p 3.13 serena-agent==1.7.0')}
         pending={null}
         includeCoreRow={false}
         dependencySetupMode="expandable"
@@ -95,11 +95,11 @@ describe('Chrome dependency guidance surfaces', () => {
     )
     expect(collapsed).toContain('aria-expanded="false"')
     expect(collapsed).not.toContain('Local Agents')
-    expect(collapsed).not.toContain('uv tool install -p 3.13 serena-agent')
+    expect(collapsed).not.toContain('uv tool install --force -p 3.13 serena-agent==1.7.0')
 
     const expanded = renderToStaticMarkup(
       <ExtensionSettingsControls
-        snapshot={snapshot('uv tool install -p 3.13 serena-agent')}
+        snapshot={snapshot('uv tool install --force -p 3.13 serena-agent==1.7.0')}
         pending={null}
         includeCoreRow={false}
         dependencySetupMode="expandable"
@@ -110,7 +110,7 @@ describe('Chrome dependency guidance surfaces', () => {
     )
     expect(expanded).toContain('ChatGPT')
     expect(expanded).toContain('Local Agents')
-    expect(expanded).toContain('uv tool install -p 3.13 serena-agent')
+    expect(expanded).toContain('uv tool install --force -p 3.13 serena-agent==1.7.0')
   })
 
   it('keeps only one settings accordion expanded when multiple initial-open signals are present', () => {

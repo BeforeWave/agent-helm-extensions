@@ -149,7 +149,7 @@ $manifestPath = Join-Path $temp 'release-manifest.json'
 try {
   $Version = (& $ReleaseTool resolve -ReleaseUrl $ReleaseUrl -Version $Version -ManifestPath $manifestPath | Select-Object -Last 1).Trim()
   $AgentHelmProductVersion = (& $ReleaseTool field -ReleaseUrl $ReleaseUrl -Version $Version -Field 'agentHelmVersion' -ManifestPath $manifestPath | Select-Object -Last 1).Trim()
-  $AgentHelmReleaseVersion = (& $ReleaseTool field -ReleaseUrl $ReleaseUrl -Version $Version -Field 'agentHelmReleaseVersion' -ManifestPath $manifestPath | Select-Object -Last 1).Trim()
+  $AgentHelmReleaseVersion = (& $ReleaseTool field -ReleaseUrl $ReleaseUrl -Version $Version -Field 'agentHelmReleaseVersion' -FallbackField 'agentHelmVersion' -ManifestPath $manifestPath | Select-Object -Last 1).Trim()
   Write-Host "Agent Helm Chrome: Release v$Version -> Agent Helm v$AgentHelmReleaseVersion -> $AgentHelmProductVersion"
 
   Stage 1 "Chrome Extension $($Version): download and verify"

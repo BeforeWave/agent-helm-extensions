@@ -12,6 +12,7 @@ export interface ConnectionStatus {
 export interface CapabilityState {
   enabled: boolean
   available: boolean
+  configurable?: boolean
 }
 
 export type DependencyName = 'serena' | 'tunnelClient'

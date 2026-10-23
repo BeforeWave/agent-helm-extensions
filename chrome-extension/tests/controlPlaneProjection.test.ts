@@ -25,7 +25,7 @@ describe('native Core snapshot projection', () => {
   const health = {
     status: 'ok',
     dependencies: {
-      serena: { configured: true, available: true, command: 'serena', install: { automatic: true, url: 'https://github.com/oraios/serena', command: 'uv tool install -p 3.13 serena-agent' } },
+      serena: { configured: true, available: true, command: 'serena', install: { automatic: true, url: 'https://github.com/oraios/serena', command: 'uv tool install --force -p 3.13 serena-agent==1.7.0' } },
       tunnelClient: { configured: true, available: true, command: 'tunnel-client', install: { automatic: false, url: 'https://github.com/openai/tunnel-client/releases' } },
     },
     serena: {
@@ -74,7 +74,7 @@ describe('native Core snapshot projection', () => {
       command: { enabled: true, available: true },
     })
     expect(snapshot.dependencies).toEqual({
-      serena: { state: 'running', command: 'serena', installUrl: 'https://github.com/oraios/serena', installCommand: 'uv tool install -p 3.13 serena-agent' },
+      serena: { state: 'running', command: 'serena', installUrl: 'https://github.com/oraios/serena', installCommand: 'uv tool install --force -p 3.13 serena-agent==1.7.0' },
       tunnelClient: { state: 'running', command: 'tunnel-client', installUrl: 'https://github.com/openai/tunnel-client/releases' },
     })
     expect(snapshot.agents).toEqual([{ id: 'dsh', name: 'DSH', enabled: true, configurable: true, runtimeState: 'ready' }])
@@ -102,6 +102,19 @@ describe('native Core snapshot projection', () => {
     })
   })
 
+
+  it('locks Coding and Understand to Core Host authority even when persisted toggles were off', () => {
+    const snapshot = projectNativeSnapshot({
+      ...health,
+      execution: { mode: 'host', status: 'ready' },
+      externalCapabilities: { command: true, semantic: true, read_only: false, delegate: true },
+      externalUserAccess: { enabled: true, mutations: true, delegation: false },
+      externalAccessConfigurable: { enabled: false, mutations: false, delegation: true },
+    }, summaries)
+    expect(snapshot.capabilities.understand).toEqual({ enabled: true, available: true, configurable: false })
+    expect(snapshot.capabilities.code).toEqual({ enabled: true, available: true, configurable: false })
+    expect(snapshot.capabilities.command).toEqual({ enabled: false, available: true, configurable: true })
+  })
 
   it('keeps older Core health usable while disabling only the unsupported ChatGPT Code Sense toggle', () => {
     const { externalAgentLspEnabled: _omitted, ...legacyHealth } = health
