@@ -118,6 +118,7 @@ export function projectNativeSnapshot(healthValue: unknown, summariesValue: unkn
     ? "Missing required environment: " + missingEnvironment.join(", ")
     : undefined)
 
+  const nativeAgents = record(health.nativeAgents)
   const localMcp = record(health.localMcp)
   const localMcpEnabled = coreRunning && booleanValue(localMcp.enabled)
   const localMcpMessage = stringValue(localMcp.message)
@@ -198,6 +199,22 @@ export function projectNativeSnapshot(healthValue: unknown, summariesValue: unkn
         state: localMcpEnabled ? 'running' : 'stopped',
         ...(localMcpMessage ? { message: localMcpMessage } : {}),
       },
+      ...(['codex', 'claude'] as const).map((id) => {
+        const native = record(nativeAgents[id])
+        const installed = typeof native.installed === 'boolean' ? native.installed : undefined
+        const enabled = coreRunning && booleanValue(native.enabled)
+        const configured = booleanValue(native.configured)
+        return {
+          id: id === 'codex' ? 'native-codex' : 'native-claude',
+          label: id === 'codex' ? 'Codex' : 'Claude Code',
+          kind: 'toggle' as const,
+          enabled,
+          ...(installed === undefined ? {} : { installed }),
+          configurable: coreRunning && installed === true,
+          state: installed === undefined || installed === false ? 'unavailable' as const : enabled && configured ? 'running' as const : 'stopped' as const,
+          ...(stringValue(native.message) ? { message: stringValue(native.message) } : {}),
+        }
+      }),
       {
         id: 'tunnel',
         label: t('tunnel'),
@@ -419,6 +436,36 @@ export class NativeAgentHelmService implements AgentHelmServiceAdapter {
     return await this.getSnapshot()
   }
 
+  async listExternalMcpServers(): Promise<import('../../models/adapters').ExternalMcpServer[]> {
+    return await this.transport.request('listExternalMcpServers')
+  }
+
+  async scanExternalMcpServers(): Promise<import('../../models/adapters').ExternalMcpScanResult> {
+    return await this.transport.request('scanExternalMcpServers', [], 20_000)
+  }
+
+  async importExternalMcpServer(id: string): Promise<import('../../models/adapters').ExternalMcpServer[]> {
+    return await this.transport.request('importExternalMcpServer', [id])
+  }
+
+  async configureExternalMcpEnv(id: string, values: Record<string, string>): Promise<import('../../models/adapters').ExternalMcpServer[]> {
+    return await this.transport.request('configureExternalMcpEnv', [id, values])
+  }
+
+  async configureExternalMcpHttpHeaders(id: string, headers: Record<string, string>): Promise<import('../../models/adapters').ExternalMcpServer[]> {
+    return await this.transport.request('configureExternalMcpHttpHeaders', [id, headers])
+  }
+  async configureExternalMcpOAuth(id: string, options: import('../../models/adapters').OAuthClientSetup): Promise<import('../../models/adapters').ExternalMcpServer[]> {
+    return await this.transport.request('configureExternalMcpOAuth', [id, options])
+  }
+  async beginExternalMcpOAuth(id: string): Promise<{ authorizationUrl?: string }> {
+    return await this.transport.request('beginExternalMcpOAuth', [id])
+  }
+
+  async setExternalMcpEnabled(id: string, enabled: boolean): Promise<import('../../models/adapters').ExternalMcpServer[]> {
+    return await this.transport.request('setExternalMcpEnabled', [id, enabled])
+  }
+
   async setAgentEnabled(agentId: string, enabled: boolean): Promise<ControlPlaneSnapshot> {
     await this.transport.request('setAgentDelegationEnabled', [agentId, enabled])
     return await this.getSnapshot()
@@ -433,6 +480,7 @@ export class NativeAgentHelmService implements AgentHelmServiceAdapter {
     if (settingId === 'core') await this.transport.request('setDaemonEnabled', [enabled], 30_000)
     else if (settingId === 'external-agent-lsp') await this.transport.request('setExternalAgentLspEnabled', [enabled])
     else if (settingId === 'local-agent-lsp') await this.transport.request('setLocalMcpEnabled', [enabled])
+    else if (settingId === 'native-codex' || settingId === 'native-claude') await this.transport.request('setNativeAgentEnabled', [settingId === 'native-codex' ? 'codex' : 'claude', enabled])
     else throw new Error(`Setting is not writable: ${settingId}`)
     return await this.getSnapshot()
   }

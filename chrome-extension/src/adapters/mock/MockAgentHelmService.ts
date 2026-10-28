@@ -222,6 +222,21 @@ export class MockAgentHelmService implements AgentHelmServiceAdapter {
     return this.getSnapshot()
   }
 
+  async listExternalMcpServers(): Promise<import('../../models/adapters').ExternalMcpServer[]> { return [] }
+  async scanExternalMcpServers(): Promise<import('../../models/adapters').ExternalMcpScanResult> { return { servers: [], failures: [] } }
+  async importExternalMcpServer(_id: string): Promise<import('../../models/adapters').ExternalMcpServer[]> {
+    throw new Error('No External MCP servers configured in preview')
+  }
+  async configureExternalMcpEnv(_id: string, _values: Record<string, string>): Promise<import('../../models/adapters').ExternalMcpServer[]> {
+    throw new Error('No MCP environment setup available in preview')
+  }
+  async configureExternalMcpHttpHeaders(_id: string, _headers: Record<string, string>): Promise<import('../../models/adapters').ExternalMcpServer[]> { return [] }
+  async configureExternalMcpOAuth(_id: string, _options: import('../../models/adapters').OAuthClientSetup): Promise<import('../../models/adapters').ExternalMcpServer[]> { return [] }
+  async beginExternalMcpOAuth(_id: string): Promise<{ authorizationUrl?: string }> { return {} }
+  async setExternalMcpEnabled(_id: string, _enabled: boolean): Promise<import('../../models/adapters').ExternalMcpServer[]> {
+    throw new Error('No External MCP servers configured in preview')
+  }
+
   async setAgentEnabled(agentId: string, enabled: boolean): Promise<ControlPlaneSnapshot> {
     const agent = this.snapshot.agents.find((item) => item.id === agentId)
     if (!agent?.configurable) throw new Error(`Agent control is unavailable: ${agentId}`)

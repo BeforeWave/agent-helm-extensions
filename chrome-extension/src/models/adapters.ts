@@ -17,6 +17,26 @@ export interface ControlPlaneStateUpdate {
   error: string | null
 }
 
+export type ExternalMcpServer = {
+  id: string
+  name: string
+  source: string
+  sources?: Array<{ source: string; name: string }>
+  status: 'discovered' | 'imported' | 'enabled' | 'connected' | 'unavailable' | 'auth-required' | 'needs-config' | 'error'
+  issue?: 'missing-env' | 'remote-auth' | 'insecure-http'
+  requiredEnv?: string[]
+  canConfigureHeaders?: boolean
+  canAuthorize?: boolean
+  authenticated?: boolean
+}
+
+export type ExternalMcpScanResult = {
+  servers: ExternalMcpServer[]
+  failures: Array<{ source: 'codex' | 'claude'; reason: 'scan_failed' | 'invalid_response' }>
+}
+
+export type OAuthClientSetup = { grantType: 'authorization_code' | 'client_credentials'; clientId?: string; clientSecret?: string; clientMetadataUrl?: string; scope?: string }
+
 export interface AgentHelmServiceAdapter {
   subscribeSnapshot?(listener: (update: ControlPlaneStateUpdate) => void): () => void
   subscribeWorkHistoryChanges?(listener: () => void): () => void
@@ -30,13 +50,21 @@ export interface AgentHelmServiceAdapter {
   addWorkspace(): Promise<ControlPlaneSnapshot | null>
   setCapability(capability: CapabilityKey, enabled: boolean): Promise<ControlPlaneSnapshot>
   setAgentEnabled(agentId: string, enabled: boolean): Promise<ControlPlaneSnapshot>
+  listExternalMcpServers(): Promise<ExternalMcpServer[]>
+  scanExternalMcpServers(): Promise<ExternalMcpScanResult>
+  importExternalMcpServer(id: string): Promise<ExternalMcpServer[]>
+  configureExternalMcpEnv(id: string, values: Record<string, string>): Promise<ExternalMcpServer[]>
+  configureExternalMcpHttpHeaders(id: string, headers: Record<string, string>): Promise<ExternalMcpServer[]>
+  configureExternalMcpOAuth(id: string, options: OAuthClientSetup): Promise<ExternalMcpServer[]>
+  beginExternalMcpOAuth(id: string): Promise<{ authorizationUrl?: string }>
+  setExternalMcpEnabled(id: string, enabled: boolean): Promise<ExternalMcpServer[]>
   configureTunnel(input: TunnelSetupValues): Promise<ControlPlaneSnapshot>
   setSetting(settingId: string, enabled: boolean): Promise<ControlPlaneSnapshot>
   installDependency(dependency: DependencyName): Promise<ControlPlaneSnapshot>
   bindConversation(workId: string, pageContext: PageContext): Promise<WorkHistoryDetail>
 }
 
-export type BrowserSettingsSection = 'agents' | 'tunnel'
+export type BrowserSettingsSection = 'agents' | 'tunnel' | 'external-mcp'
 
 export interface BrowserCapabilities {
   getCurrentPageContext(): Promise<PageContext>

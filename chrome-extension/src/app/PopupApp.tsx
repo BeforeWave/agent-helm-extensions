@@ -88,11 +88,13 @@ export function PopupApp({ client }: { client: BrowserControlPlaneClient }): Rea
             pending={pending}
             includeCoreRow={false}
             showInstallGuidance
-            sectionOrder={['capabilities', 'code-sense', 'tunnel', 'agents']}
+            sectionOrder={['capabilities', 'code-sense', 'tunnel', 'agents', 'external-mcp']}
             onCapabilityChange={toggleCapability}
             onAgentChange={toggleAgent}
             agentsMode="navigate"
             onAgentsNavigate={() => { void openPanel('agents') }}
+            externalMcpMode="navigate"
+            onExternalMcpNavigate={() => { void openPanel('external-mcp') }}
             onTunnelNavigate={() => { void openPanel('tunnel') }}
             onSettingChange={toggleSetting}
             onDependencyInstall={installDependency}

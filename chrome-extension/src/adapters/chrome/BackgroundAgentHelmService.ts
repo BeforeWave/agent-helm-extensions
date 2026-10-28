@@ -54,6 +54,14 @@ export class BackgroundAgentHelmService implements AgentHelmServiceAdapter {
   addWorkspace() { return this.request<ControlPlaneSnapshot | null>('addWorkspace') }
   setCapability(capability: CapabilityKey, enabled: boolean) { return this.request<ControlPlaneSnapshot>('setCapability', [capability, enabled]) }
   setAgentEnabled(agentId: string, enabled: boolean) { return this.request<ControlPlaneSnapshot>('setAgentEnabled', [agentId, enabled]) }
+  listExternalMcpServers() { return this.request<import('../../models/adapters').ExternalMcpServer[]>('listExternalMcpServers') }
+  scanExternalMcpServers() { return this.request<import('../../models/adapters').ExternalMcpScanResult>('scanExternalMcpServers') }
+  importExternalMcpServer(id: string) { return this.request<import('../../models/adapters').ExternalMcpServer[]>('importExternalMcpServer', [id]) }
+  configureExternalMcpEnv(id: string, values: Record<string, string>) { return this.request<import('../../models/adapters').ExternalMcpServer[]>('configureExternalMcpEnv', [id, values]) }
+  configureExternalMcpHttpHeaders(id: string, headers: Record<string, string>) { return this.request<import('../../models/adapters').ExternalMcpServer[]>('configureExternalMcpHttpHeaders', [id, headers]) }
+  configureExternalMcpOAuth(id: string, options: import('../../models/adapters').OAuthClientSetup) { return this.request<import('../../models/adapters').ExternalMcpServer[]>('configureExternalMcpOAuth', [id, options]) }
+  beginExternalMcpOAuth(id: string) { return this.request<{ authorizationUrl?: string }>('beginExternalMcpOAuth', [id]) }
+  setExternalMcpEnabled(id: string, enabled: boolean) { return this.request<import('../../models/adapters').ExternalMcpServer[]>('setExternalMcpEnabled', [id, enabled]) }
   configureTunnel(input: TunnelSetupValues) { return this.request<ControlPlaneSnapshot>('configureTunnel', [input]) }
   setSetting(settingId: string, enabled: boolean) { return this.request<ControlPlaneSnapshot>('setSetting', [settingId, enabled]) }
   installDependency(dependency: DependencyName) { return this.request<ControlPlaneSnapshot>('installDependency', [dependency]) }

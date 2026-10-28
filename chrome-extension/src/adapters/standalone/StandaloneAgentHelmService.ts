@@ -68,6 +68,14 @@ export class StandaloneAgentHelmService implements AgentHelmServiceAdapter {
   addWorkspace(): Promise<ControlPlaneSnapshot | null> { return this.delegate.addWorkspace() }
   setCapability(capability: CapabilityKey, enabled: boolean): Promise<ControlPlaneSnapshot> { return this.delegate.setCapability(capability, enabled) }
   setAgentEnabled(agentId: string, enabled: boolean): Promise<ControlPlaneSnapshot> { return this.delegate.setAgentEnabled(agentId, enabled) }
+  listExternalMcpServers() { return this.delegate.listExternalMcpServers() }
+  scanExternalMcpServers() { return this.delegate.scanExternalMcpServers() }
+  importExternalMcpServer(id: string) { return this.delegate.importExternalMcpServer(id) }
+  configureExternalMcpEnv(id: string, values: Record<string, string>) { return this.delegate.configureExternalMcpEnv(id, values) }
+  configureExternalMcpHttpHeaders(id: string, headers: Record<string, string>) { return this.delegate.configureExternalMcpHttpHeaders(id, headers) }
+  configureExternalMcpOAuth(id: string, options: import('../../models/adapters').OAuthClientSetup) { return this.delegate.configureExternalMcpOAuth(id, options) }
+  beginExternalMcpOAuth(id: string) { return this.delegate.beginExternalMcpOAuth(id) }
+  setExternalMcpEnabled(id: string, enabled: boolean) { return this.delegate.setExternalMcpEnabled(id, enabled) }
   configureTunnel(input: TunnelSetupValues): Promise<ControlPlaneSnapshot> { return this.delegate.configureTunnel(input) }
   setSetting(settingId: string, enabled: boolean): Promise<ControlPlaneSnapshot> { return this.delegate.setSetting(settingId, enabled) }
   installDependency(dependency: DependencyName): Promise<ControlPlaneSnapshot> { return this.delegate.installDependency(dependency) }

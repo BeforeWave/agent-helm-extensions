@@ -100,7 +100,7 @@ export class ChromeBrowserCapabilities implements BrowserCapabilities {
 
   async consumePendingSettingsSection(): Promise<BrowserSettingsSection | null> {
     const value = await chrome.storage.session.get('agentHelmPendingSettingsSection')
-    const section = value.agentHelmPendingSettingsSection === 'agents' || value.agentHelmPendingSettingsSection === 'tunnel' ? value.agentHelmPendingSettingsSection : null
+    const section = value.agentHelmPendingSettingsSection === 'agents' || value.agentHelmPendingSettingsSection === 'tunnel' || value.agentHelmPendingSettingsSection === 'external-mcp' ? value.agentHelmPendingSettingsSection : null
     if (section) await chrome.storage.session.remove('agentHelmPendingSettingsSection')
     return section
   }

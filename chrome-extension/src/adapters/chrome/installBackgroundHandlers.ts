@@ -291,6 +291,33 @@ export function installBackgroundHandlers(service: AgentHelmServiceAdapter = cre
         args[1] as boolean,
       )))
       case 'setAgentEnabled': return runSnapshotOperation(async () => publishMutationSnapshot(await service.setAgentEnabled(args[0] as string, args[1] as boolean)))
+      case 'listExternalMcpServers': return service.listExternalMcpServers()
+      case 'scanExternalMcpServers': return service.scanExternalMcpServers()
+      case 'importExternalMcpServer': {
+        if (typeof args[0] !== 'string') throw new Error('Invalid External MCP import request')
+        return service.importExternalMcpServer(args[0])
+      }
+      case 'configureExternalMcpEnv': {
+        if (typeof args[0] !== 'string' || !args[1] || typeof args[1] !== 'object' || Array.isArray(args[1]))
+          throw new Error('Invalid MCP environment setup request')
+        return service.configureExternalMcpEnv(args[0], args[1] as Record<string, string>)
+      }
+      case 'configureExternalMcpHttpHeaders': {
+        if (typeof args[0] !== 'string' || !args[1] || typeof args[1] !== 'object' || Array.isArray(args[1])) throw new Error('Invalid MCP HTTP credential headers')
+        return service.configureExternalMcpHttpHeaders(args[0], args[1] as Record<string, string>)
+      }
+      case 'configureExternalMcpOAuth': {
+        if (typeof args[0] !== 'string' || !args[1] || typeof args[1] !== 'object' || Array.isArray(args[1])) throw new Error('Invalid MCP OAuth config')
+        return service.configureExternalMcpOAuth(args[0], args[1] as import('../../models/adapters').OAuthClientSetup)
+      }
+      case 'beginExternalMcpOAuth': {
+        if (typeof args[0] !== 'string') throw new Error('Invalid MCP authorization ID')
+        return service.beginExternalMcpOAuth(args[0])
+      }
+      case 'setExternalMcpEnabled': {
+        if (typeof args[0] !== 'string' || typeof args[1] !== 'boolean') throw new Error('Invalid External MCP control request')
+        return service.setExternalMcpEnabled(args[0], args[1])
+      }
       case 'configureTunnel': return runSnapshotOperation(async () => publishMutationSnapshot(await service.configureTunnel(args[0] as Parameters<AgentHelmServiceAdapter['configureTunnel']>[0])))
       case 'setSetting': return runSnapshotOperation(async () => publishMutationSnapshot(await service.setSetting(args[0] as string, args[1] as boolean)))
       case 'installDependency': return runSnapshotOperation(async () => publishMutationSnapshot(await service.installDependency(args[0] as Parameters<AgentHelmServiceAdapter['installDependency']>[0])))

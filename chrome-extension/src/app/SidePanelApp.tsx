@@ -93,6 +93,7 @@ export function SidePanelApp({ client }: { client: BrowserControlPlaneClient }) 
   }>({ works: [], nextCursor: undefined, loading: false, loaded: false, error: null })
   const [agentsInitiallyExpanded, setAgentsInitiallyExpanded] = useState(false)
   const [tunnelInitiallyExpanded, setTunnelInitiallyExpanded] = useState(false)
+  const [externalMcpInitiallyExpanded, setExternalMcpInitiallyExpanded] = useState(false)
   const coreIssue = snapshot?.settings.find((setting) => setting.id === 'core')?.message
   const visibleIssue = error ?? coreIssue
   const listScrollRef = useRef<HTMLDivElement>(null)
@@ -195,6 +196,7 @@ export function SidePanelApp({ client }: { client: BrowserControlPlaneClient }) 
     void client.consumePendingSettingsSection().then((section) => {
       if (!cancelled && section === 'agents') setAgentsInitiallyExpanded(true)
       if (!cancelled && section === 'tunnel') setTunnelInitiallyExpanded(true)
+      if (!cancelled && section === 'external-mcp') setExternalMcpInitiallyExpanded(true)
     }).catch(() => {})
     return () => { cancelled = true }
   }, [client])
@@ -367,16 +369,25 @@ export function SidePanelApp({ client }: { client: BrowserControlPlaneClient }) 
             capabilitiesInitiallyExpanded={false}
             agentsInitiallyExpanded={agentsInitiallyExpanded}
             tunnelInitiallyExpanded={tunnelInitiallyExpanded}
+            externalMcpInitiallyExpanded={externalMcpInitiallyExpanded}
             includeCoreRow={false}
             showInstallGuidance
             dependencySetupMode="expandable"
-            sectionOrder={['capabilities', 'code-sense', 'tunnel', 'agents']}
+            sectionOrder={['capabilities', 'code-sense', 'tunnel', 'agents', 'external-mcp']}
             onCapabilityChange={(capability, enabled) => {
               void mutateControl(`capability:${capability}`, () => client.setCapability(capability, enabled))
             }}
             onAgentChange={(agentId, enabled) => {
               void mutateControl(`agent:${agentId}`, () => client.setAgentEnabled(agentId, enabled))
             }}
+            onExternalMcpList={() => client.listExternalMcpServers()}
+            onExternalMcpScan={() => client.scanExternalMcpServers()}
+            onExternalMcpImport={(id) => client.importExternalMcpServer(id)}
+            onExternalMcpChange={(id, enabled) => client.setExternalMcpEnabled(id, enabled)}
+            onExternalMcpConfigure={(id, values) => client.configureExternalMcpEnv(id, values)}
+            onExternalMcpConfigureHeaders={(id, headers) => client.configureExternalMcpHttpHeaders(id, headers)}
+            onExternalMcpConfigureOAuth={(id, options) => client.configureExternalMcpOAuth(id, options)}
+            onExternalMcpAuthorize={(id) => client.beginExternalMcpOAuth(id)}
             onTunnelSetup={configureTunnel}
             onSettingChange={(settingId, enabled) => {
               void mutateControl(`setting:${settingId}`, () => client.setSetting(settingId, enabled))

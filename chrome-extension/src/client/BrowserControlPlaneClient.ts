@@ -22,6 +22,14 @@ export class BrowserControlPlaneClient {
   addWorkspace() { return this.service.addWorkspace() }
   setCapability(capability: CapabilityKey, enabled: boolean) { return this.service.setCapability(capability, enabled) }
   setAgentEnabled(agentId: string, enabled: boolean) { return this.service.setAgentEnabled(agentId, enabled) }
+  listExternalMcpServers() { return this.service.listExternalMcpServers() }
+  scanExternalMcpServers() { return this.service.scanExternalMcpServers() }
+  importExternalMcpServer(id: string) { return this.service.importExternalMcpServer(id) }
+  configureExternalMcpEnv(id: string, values: Record<string, string>) { return this.service.configureExternalMcpEnv(id, values) }
+  configureExternalMcpHttpHeaders(id: string, headers: Record<string, string>) { return this.service.configureExternalMcpHttpHeaders(id, headers) }
+  configureExternalMcpOAuth(id: string, options: import('../models/adapters').OAuthClientSetup) { return this.service.configureExternalMcpOAuth(id, options) }
+  beginExternalMcpOAuth(id: string) { return this.service.beginExternalMcpOAuth(id) }
+  setExternalMcpEnabled(id: string, enabled: boolean) { return this.service.setExternalMcpEnabled(id, enabled) }
   configureTunnel(input: TunnelSetupValues) { return this.service.configureTunnel(input) }
 
   setSetting(settingId: string, enabled: boolean) { return this.service.setSetting(settingId, enabled) }

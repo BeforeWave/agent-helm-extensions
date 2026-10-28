@@ -93,6 +93,8 @@ export interface AgentState {
 
 export interface SettingProjection {
   id: string
+  /** Native MCP installation observation, undefined for older Core versions. */
+  installed?: boolean
   label: string
   kind: 'toggle' | 'status'
   state: RuntimeState

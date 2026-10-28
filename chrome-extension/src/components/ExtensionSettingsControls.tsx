@@ -7,6 +7,7 @@ import type { CapabilityKey, DependencyName } from '../models/controlPlane'
 import extensionManifest from '../../package.json'
 import { agentHelmInstallerSourceForRelease, agentHelmMacosInstallerFilename, tunnelOnboardingSource, tunnelSetupCanSubmit, type TunnelSetupValues } from '../ui-contract'
 import { AgentIcon } from './Icons'
+import { ExternalMcpControls } from './ExternalMcpControls'
 
 import { Accordion } from '../components/Accordion'
 
@@ -109,13 +110,14 @@ function CapabilitySummary({ items }: { items: CapabilitySummaryItem[] }): React
   )
 }
 
-export type ExtensionSettingsSection = 'capabilities' | 'agents' | 'code-sense' | 'tunnel'
+export type ExtensionSettingsSection = 'capabilities' | 'agents' | 'code-sense' | 'tunnel' | 'external-mcp'
 
 export const DEFAULT_EXTENSION_SETTINGS_SECTION_ORDER: readonly ExtensionSettingsSection[] = [
   'capabilities',
   'code-sense',
   'tunnel',
   'agents',
+  'external-mcp',
 ]
 
 type SettingsControlsProps = {
@@ -127,6 +129,8 @@ type SettingsControlsProps = {
   agentsMode?: 'accordion' | 'navigate'
   codeSenseInitiallyExpanded?: boolean
   tunnelInitiallyExpanded?: boolean
+  externalMcpInitiallyExpanded?: boolean
+  externalMcpMode?: 'accordion' | 'navigate'
   includeCoreRow?: boolean
   showInstallGuidance?: boolean
   dependencySetupMode?: 'status-only' | 'expandable'
@@ -134,6 +138,15 @@ type SettingsControlsProps = {
   onCapabilityChange: (capability: CapabilityKey, enabled: boolean) => void
   onAgentChange: (agentId: string, enabled: boolean) => void
   onAgentsNavigate?: () => void
+  onExternalMcpNavigate?: () => void
+  onExternalMcpList?: () => Promise<import('../models/adapters').ExternalMcpServer[]>
+  onExternalMcpScan?: () => Promise<import('../models/adapters').ExternalMcpScanResult>
+  onExternalMcpImport?: (id: string) => Promise<import('../models/adapters').ExternalMcpServer[]>
+  onExternalMcpChange?: (id: string, enabled: boolean) => Promise<import('../models/adapters').ExternalMcpServer[]>
+  onExternalMcpConfigure?: (id: string, values: Record<string, string>) => Promise<import('../models/adapters').ExternalMcpServer[]>
+  onExternalMcpConfigureHeaders?: (id: string, headers: Record<string, string>) => Promise<import('../models/adapters').ExternalMcpServer[]>
+  onExternalMcpConfigureOAuth?: (id: string, options: import('../models/adapters').OAuthClientSetup) => Promise<import('../models/adapters').ExternalMcpServer[]>
+  onExternalMcpAuthorize?: (id: string) => Promise<{ authorizationUrl?: string }>
   onTunnelSetup?: (input: TunnelSetupValues) => Promise<import('../models/controlPlane').ControlPlaneSnapshot>
   onTunnelNavigate?: () => void
   onSettingChange: (settingId: string, enabled: boolean) => void
@@ -245,6 +258,8 @@ export function ExtensionSettingsControls({
   agentsMode = 'accordion',
   codeSenseInitiallyExpanded = false,
   tunnelInitiallyExpanded = false,
+  externalMcpInitiallyExpanded = false,
+  externalMcpMode = 'accordion',
   includeCoreRow = true,
   showInstallGuidance = false,
   dependencySetupMode = 'status-only',
@@ -252,6 +267,15 @@ export function ExtensionSettingsControls({
   onCapabilityChange,
   onAgentChange,
   onAgentsNavigate,
+  onExternalMcpNavigate,
+  onExternalMcpList,
+  onExternalMcpScan,
+  onExternalMcpImport,
+  onExternalMcpChange,
+  onExternalMcpConfigure,
+  onExternalMcpConfigureHeaders,
+  onExternalMcpConfigureOAuth,
+  onExternalMcpAuthorize,
   onTunnelSetup,
   onTunnelNavigate,
   onSettingChange,
@@ -261,12 +285,14 @@ export function ExtensionSettingsControls({
 }: SettingsControlsProps): React.JSX.Element {
   const [expandedSection, setExpandedSection] = useState<ExtensionSettingsSection | null>(() => {
     if (agentsMode === 'accordion' && agentsInitiallyExpanded) return 'agents'
+    if (externalMcpInitiallyExpanded) return 'external-mcp'
     if (tunnelInitiallyExpanded) return 'tunnel'
     if (codeSenseInitiallyExpanded) return 'code-sense'
     if (capabilitiesInitiallyExpanded) return 'capabilities'
     return null
   })
   useEffect(() => { if (agentsMode === 'accordion' && agentsInitiallyExpanded) setExpandedSection('agents') }, [agentsInitiallyExpanded, agentsMode])
+  useEffect(() => { if (externalMcpInitiallyExpanded) setExpandedSection('external-mcp') }, [externalMcpInitiallyExpanded])
   useEffect(() => { if (tunnelInitiallyExpanded) setExpandedSection('tunnel') }, [tunnelInitiallyExpanded])
   useEffect(() => { if (codeSenseInitiallyExpanded) setExpandedSection('code-sense') }, [codeSenseInitiallyExpanded])
   useEffect(() => { if (capabilitiesInitiallyExpanded) setExpandedSection('capabilities') }, [capabilitiesInitiallyExpanded])
@@ -284,6 +310,9 @@ export function ExtensionSettingsControls({
     enabled: true,
     configurable: false,
   } : undefined)
+  const nativeCodeSenseSettings = (['native-codex', 'native-claude'] as const)
+    .map((id) => snapshot?.settings.find((setting) => setting.id === id))
+    .filter((setting): setting is NonNullable<typeof setting> => Boolean(setting))
   const localAgentLsp = snapshot?.settings.find((setting) => setting.id === 'local-agent-lsp') ?? (loading ? {
     id: 'local-agent-lsp',
     label: t('localMcp'),
@@ -374,6 +403,24 @@ export function ExtensionSettingsControls({
       )
     }
 
+    if (section === 'external-mcp') {
+      if (externalMcpMode === 'navigate') return (
+        <button key={section} type="button" className="popup-setting-row" disabled={!onExternalMcpNavigate}
+          onClick={onExternalMcpNavigate}>
+          <span className="popup-setting-name">{t('externalMcpTitle')}</span>
+          <span className="popup-panel-entry__arrow" aria-hidden="true">›</span>
+        </button>
+      )
+      return <Accordion key={section} title={t('externalMcpTitle')}
+        expanded={expandedSection === section}
+        disabled={loading} onToggle={() => toggleSection(section)}>
+        {expandedSection === section && onExternalMcpList && onExternalMcpScan && onExternalMcpImport && onExternalMcpChange && onExternalMcpConfigure && onExternalMcpAuthorize && onExternalMcpConfigureOAuth && onExternalMcpConfigureHeaders
+          ? <ExternalMcpControls list={onExternalMcpList} scan={onExternalMcpScan} importServer={onExternalMcpImport}
+              setEnabled={onExternalMcpChange} configure={onExternalMcpConfigure} configureHeaders={onExternalMcpConfigureHeaders} configureOAuth={onExternalMcpConfigureOAuth} authorize={onExternalMcpAuthorize} disabled={childControlsDisabled} />
+          : null}
+      </Accordion>
+    }
+
     if (section === 'agents') {
       if (agentsMode === 'navigate') {
         return (
@@ -453,7 +500,7 @@ export function ExtensionSettingsControls({
           ) : null}
           {localAgentLsp ? (
             <div className="popup-subrow">
-              <span className="popup-subrow__name">{localAgentLsp.label}</span>
+              <span className="popup-subrow__name">DSH</span>
               <Switch
                 checked={!serenaUnavailable && (localAgentLsp.enabled ?? false)}
                 disabled={serenaUnavailable || childControlsDisabled || !localAgentLsp.configurable || pending !== null}
@@ -462,6 +509,17 @@ export function ExtensionSettingsControls({
               />
             </div>
           ) : null}
+          {nativeCodeSenseSettings.map((setting) => (
+            <div className="popup-subrow" key={setting.id}>
+              <span className="popup-subrow__name" title={setting.message ?? (setting.installed === false ? 'Not installed' : setting.installed === undefined ? 'Restart Agent Helm Core to detect local agents' : undefined)}>{setting.label}{setting.installed === false ? ' (not installed)' : setting.installed === undefined ? ' (Core update required)' : ''}</span>
+              <Switch
+                checked={!serenaUnavailable && Boolean(setting.enabled)}
+                disabled={serenaUnavailable || childControlsDisabled || !setting.configurable || pending !== null}
+                label={`Toggle ${setting.label} Code Sense`}
+                onChange={(enabled) => onSettingChange(setting.id, enabled)}
+              />
+            </div>
+          ))}
           {dependencySetupVisible ? (
             <div className="dependency-setup-panel" role="status">
               <strong className="dependency-setup-title">{t('serenaDependencyIssue')}</strong>
