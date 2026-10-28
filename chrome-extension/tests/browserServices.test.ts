@@ -466,7 +466,7 @@ describe('browser service helpers', () => {
     expect(source).not.toContain('popup-setting-row')
 
     const { MockBrowserCapabilities } = await import('../src/adapters/mock/MockBrowserCapabilities')
-    let section: 'agents' | 'tunnel' | undefined
+    let section: 'agents' | 'tunnel' | 'external-mcp' | undefined
     const browser = new MockBrowserCapabilities({ onOpenSidePanel: (value) => { section = value } })
     await browser.openSidePanel('agents')
     expect(section).toBe('agents')
@@ -474,6 +474,9 @@ describe('browser service helpers', () => {
     await browser.openSidePanel('tunnel')
     expect(section).toBe('tunnel')
     expect(await browser.consumePendingSettingsSection()).toBe('tunnel')
+    await browser.openSidePanel('external-mcp')
+    expect(section).toBe('external-mcp')
+    expect(await browser.consumePendingSettingsSection()).toBe('external-mcp')
   })
 
   it('derives Work Detail runtime from timeline metadata and preserves partial detail on timeline failure', async () => {

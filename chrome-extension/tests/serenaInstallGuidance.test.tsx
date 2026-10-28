@@ -25,7 +25,9 @@ function snapshot(installCommand?: string): ControlPlaneSnapshot {
     settings: [
       { id: 'core', label: 'Agent Helm Service', kind: 'toggle', state: 'running', enabled: true, configurable: true },
       { id: 'external-agent-lsp', label: 'ChatGPT', kind: 'toggle', state: 'running', enabled: true, configurable: true },
-      { id: 'local-agent-lsp', label: 'Local Agents', kind: 'toggle', state: 'running', enabled: true, configurable: true },
+      { id: 'local-agent-lsp', label: 'DSH', kind: 'toggle', state: 'running', enabled: true, configurable: true },
+      { id: 'native-codex', label: 'Codex', kind: 'toggle', state: 'running', installed: true, enabled: true, configurable: true },
+      { id: 'native-claude', label: 'Claude Code', kind: 'toggle', state: 'running', installed: true, enabled: true, configurable: true },
       { id: 'tunnel', label: 'ChatGPT Secure Tunnel', kind: 'status', state: 'running', apiKeyConfigured: true, tunnelId: 'tunnel-test' },
     ],
     workspaces: [],
@@ -75,14 +77,14 @@ describe('Chrome dependency guidance surfaces', () => {
       />,
     )
     const switches = [...html.matchAll(/<button[^>]*role="switch"[^>]*>/g)].map((match) => match[0])
-    expect(switches).toHaveLength(2)
+    expect(switches).toHaveLength(4)
     for (const control of switches) {
       expect(control).toContain('aria-checked="false"')
       expect(control).toContain('disabled=""')
     }
   })
 
-  it('uses Code Sense as one group with ChatGPT and Local Agents sub-settings', () => {
+  it('uses Code Sense as one group with independent ChatGPT, DSH, Codex and Claude Code switches', () => {
     const collapsed = renderToStaticMarkup(
       <ExtensionSettingsControls
         snapshot={snapshot('uv tool install --force -p 3.13 serena-agent==1.7.0')}
@@ -94,7 +96,7 @@ describe('Chrome dependency guidance surfaces', () => {
       />,
     )
     expect(collapsed).toContain('aria-expanded="false"')
-    expect(collapsed).not.toContain('Local Agents')
+    expect(collapsed).not.toContain('>DSH<')
     expect(collapsed).not.toContain('uv tool install --force -p 3.13 serena-agent==1.7.0')
 
     const expanded = renderToStaticMarkup(
@@ -109,8 +111,37 @@ describe('Chrome dependency guidance surfaces', () => {
       />,
     )
     expect(expanded).toContain('ChatGPT')
-    expect(expanded).toContain('Local Agents')
+    expect(expanded).toContain('>DSH<')
+    expect(expanded).toContain('>Codex<')
+    expect(expanded).toContain('>Claude Code<')
     expect(expanded).toContain('uv tool install --force -p 3.13 serena-agent==1.7.0')
+  })
+
+  it('shows missing Core native status as upgrade-required, not as a missing Codex/Claude installation', () => {
+    const value = snapshot()
+    value.dependencies.serena = { state: 'ready', command: 'serena' }
+    for (const setting of value.settings.filter((setting) => setting.id.startsWith('native-'))) {
+      setting.state = 'unavailable'
+      setting.configurable = false
+      setting.enabled = false
+      delete setting.installed
+    }
+    const html = renderToStaticMarkup(
+      <ExtensionSettingsControls snapshot={value} pending={null} includeCoreRow={false}
+        codeSenseInitiallyExpanded sectionOrder={['code-sense']} {...callbacks} />,
+    )
+    expect(html).toContain('Codex (Core update required)')
+    expect(html).toContain('Claude Code (Core update required)')
+    expect(html).not.toContain('(not installed)')
+    const absent = value.settings.find((setting) => setting.id === 'native-claude')
+    if (!absent) throw new Error('missing Claude setting')
+    absent.installed = false
+    const observedHtml = renderToStaticMarkup(
+      <ExtensionSettingsControls snapshot={value} pending={null} includeCoreRow={false}
+        codeSenseInitiallyExpanded sectionOrder={['code-sense']} {...callbacks} />,
+    )
+    expect(observedHtml).toContain('Claude Code (not installed)')
+    expect(observedHtml).toContain('Codex (Core update required)')
   })
 
   it('keeps only one settings accordion expanded when multiple initial-open signals are present', () => {
@@ -130,7 +161,9 @@ describe('Chrome dependency guidance surfaces', () => {
 
     expect(html.match(/aria-expanded=\"true\"/g)?.length).toBe(1)
     expect(html).toContain('>ChatGPT<')
-    expect(html).toContain('>Local Agents<')
+    expect(html).toContain('>DSH<')
+    expect(html).toContain('>Codex<')
+    expect(html).toContain('>Claude Code<')
   })
 
   it('shows ChatGPT Secure Tunnel failures as a red hoverable dot in Popup without setup content', () => {
@@ -228,7 +261,9 @@ describe('Chrome dependency guidance surfaces', () => {
     expect(tunnel).toBeGreaterThan(codeSense)
     expect(agents).toBeGreaterThan(tunnel)
     expect(html).toContain('>ChatGPT<')
-    expect(html).toContain('>Local Agents<')
+    expect(html).toContain('>DSH<')
+    expect(html).toContain('>Codex<')
+    expect(html).toContain('>Claude Code<')
     expect(html.match(/popup-runtime-state/g)?.length).toBe(2)
   })
 
@@ -300,8 +335,8 @@ describe('Chrome dependency guidance surfaces', () => {
     expect(controlsSource).toContain("setting.id === 'external-agent-lsp'")
     expect(controlsSource).toContain("setting.id === 'local-agent-lsp'")
     expect(sidePanelSource).toContain('dependencySetupMode="expandable"')
-    expect(popupSource).toContain("sectionOrder={['capabilities', 'code-sense', 'tunnel', 'agents']}")
-    expect(sidePanelSource).toContain("sectionOrder={['capabilities', 'code-sense', 'tunnel', 'agents']}")
+    expect(popupSource).toContain("sectionOrder={['capabilities', 'code-sense', 'tunnel', 'agents', 'external-mcp']}")
+    expect(sidePanelSource).toContain("sectionOrder={['capabilities', 'code-sense', 'tunnel', 'agents', 'external-mcp']}")
     expect(popupSource).toContain("onAgentsNavigate={() => { void openPanel('agents') }}")
     expect(popupSource).toContain("onTunnelNavigate={() => { void openPanel('tunnel') }}")
     expect(sidePanelSource).toContain('consumePendingSettingsSection')

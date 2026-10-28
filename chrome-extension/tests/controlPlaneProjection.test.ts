@@ -40,6 +40,10 @@ describe('native Core snapshot projection', () => {
       health: { status: 'ok', nativeUi: true },
     }],
     localMcp: { enabled: true, url: 'http://127.0.0.1:3456/mcp' },
+    nativeAgents: {
+      codex: { installed: true, enabled: true, configured: true },
+      claude: { installed: false, enabled: false, configured: false },
+    },
     externalAgentLspEnabled: true,
     externalCapabilities: { command: true, semantic: true, read_only: false, delegate: true },
     externalUserAccess: { enabled: true, mutations: true, delegation: true },
@@ -81,6 +85,8 @@ describe('native Core snapshot projection', () => {
     expect(snapshot.settings.map((setting) => [setting.id, setting.enabled, setting.state])).toEqual([
       ['external-agent-lsp', true, 'running'],
       ['local-agent-lsp', true, 'running'],
+      ['native-codex', true, 'running'],
+      ['native-claude', false, 'unavailable'],
       ['tunnel', undefined, 'running'],
       ['core', true, 'running'],
     ])
@@ -127,6 +133,22 @@ describe('native Core snapshot projection', () => {
     expect(snapshot.settings.find((setting) => setting.id === 'local-agent-lsp')).toMatchObject({ configurable: true })
     expect(snapshot.settings.find((setting) => setting.id === 'tunnel')).toMatchObject({ state: 'running' })
     expect(snapshot.settings.find((setting) => setting.id === 'core')).toMatchObject({ state: 'running' })
+  })
+
+  it('treats missing native-agent health from an old Core as unknown, not uninstalled', () => {
+    const { nativeAgents: _unsupported, ...oldCoreHealth } = health
+    const oldSnapshot = projectNativeSnapshot(oldCoreHealth, summaries)
+    for (const id of ['native-codex', 'native-claude']) {
+      expect(oldSnapshot.settings.find((setting) => setting.id === id)).toMatchObject({
+        configurable: false,
+        state: 'unavailable',
+        enabled: false,
+      })
+      expect(oldSnapshot.settings.find((setting) => setting.id === id)?.installed).toBeUndefined()
+    }
+    const currentSnapshot = projectNativeSnapshot(health, summaries)
+    expect(currentSnapshot.settings.find((setting) => setting.id === 'native-codex')?.installed).toBe(true)
+    expect(currentSnapshot.settings.find((setting) => setting.id === 'native-claude')?.installed).toBe(false)
   })
 
   it('allows the total switch only for a daemon process started by this Extension client', () => {

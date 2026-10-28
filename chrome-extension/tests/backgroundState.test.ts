@@ -65,6 +65,14 @@ function createMutableService(initial = makeSnapshot()) {
       return structuredClone(snapshot)
     },
     async setAgentEnabled() { return structuredClone(snapshot) },
+    async listExternalMcpServers() { return [] },
+    async scanExternalMcpServers() { return { servers: [], failures: [] } },
+    async importExternalMcpServer() { return [] },
+    async configureExternalMcpEnv() { return [] },
+    async configureExternalMcpHttpHeaders() { return [] },
+    async configureExternalMcpOAuth() { return [] },
+    async beginExternalMcpOAuth() { return {} },
+    async setExternalMcpEnabled() { return [] },
     async configureTunnel() { return structuredClone(snapshot) },
     async setSetting(settingId, enabled) {
       snapshot = {

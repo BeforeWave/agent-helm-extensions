@@ -11,10 +11,10 @@ it('keeps Chrome Native Messaging method paths on the frozen entry contract', ()
   const source = read('../src/adapters/chrome/NativeAgentHelmService.ts')
   const actual = [...new Set([...source.matchAll(/(?:this\.)?(?:transport\.)?request(?:<[^\n]*?>)?\(\s*['\"]([^'\"]+)['\"]/g)].map((match) => match[1]))].sort()
   expect(actual).toEqual([
-    'bindChatUrl', 'chooseAndRegisterWorkspace', 'configureTunnel', 'findChatSessionSummaryByUrl',
-    'getChatSessionSummary', 'getChatSessionTimeline', 'getChatSessionTimelineUpdates', 'getExternalUserAccess', 'installDependency',
-    'listChatSessionSummaryPage', 'listWorkspaces', 'releaseChatSessionTimelineTail', 'setAgentDelegationEnabled', 'setDaemonEnabled',
-    'setExternalAgentLspEnabled', 'setExternalUserAccess', 'setLocalMcpEnabled', 'supervisorHealth',
+    'beginExternalMcpOAuth', 'bindChatUrl', 'chooseAndRegisterWorkspace', 'configureExternalMcpEnv', 'configureExternalMcpHttpHeaders', 'configureExternalMcpOAuth', 'configureTunnel', 'findChatSessionSummaryByUrl',
+    'getChatSessionSummary', 'getChatSessionTimeline', 'getChatSessionTimelineUpdates', 'getExternalUserAccess', 'importExternalMcpServer', 'installDependency',
+    'listChatSessionSummaryPage', 'listExternalMcpServers', 'listWorkspaces', 'releaseChatSessionTimelineTail', 'scanExternalMcpServers', 'setAgentDelegationEnabled', 'setDaemonEnabled',
+    'setExternalAgentLspEnabled', 'setExternalMcpEnabled', 'setExternalUserAccess', 'setLocalMcpEnabled', 'setNativeAgentEnabled', 'supervisorHealth',
   ])
 })
 
