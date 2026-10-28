@@ -115,6 +115,14 @@ agent-helm setup chrome
 
 ---
 
+### 升级后刷新 ChatGPT Connector Tools
+
+本次 **MCP Server Integration** 对应的 Agent Helm Core 修改了 MCP Tool Schema，将 `external_mcp_search_tools` 替换为 `external_mcp_list_tools`。**升级并重启 Core 后，必须在 ChatGPT 自定义 Connector 中执行 Refresh Tools。**
+
+如果出现工具不存在、参数 Schema 或 Contract 不匹配，请先核对 Core 版本并刷新。详情见 [Agent Helm 升级说明](https://github.com/BeforeWave/agent-helm#refresh-chatgpt-connector-tools-after-upgrading)。刷新不会删除已导入的 Server 或撤销授权。
+
+---
+
 ## 🛠️ 工作流与核心功能
 
 ### 1. 让 ChatGPT 直接处理本地项目
@@ -177,6 +185,19 @@ Extension 会把当前 ChatGPT Conversation 和对应的本地工作关联起来
 <p align="center">
   <img width="420" alt="Agent Helm Side Panel" src="https://github.com/user-attachments/assets/47f780f4-c2dd-4bcb-ae07-6f55fc8b58fe" />
 </p>
+
+---
+
+### 5. MCP Server Integration
+
+Side Panel 的 **MCP Servers** 提供统一的本地 MCP Server 管理入口：
+
+* **My MCP Servers：** 查看、启用或停用已导入的 Server。
+* **Discover MCPs：** 手动扫描 Codex 和 Claude 中配置的 MCP Server。
+* **配置与认证：** 按需设置环境变量、HTTP 凭据和受支持的认证方式。
+* **状态：** 查看连接、认证和扫描失败来源。
+
+Chrome Extension 与 DSH 使用同一份管理组件，所有 MCP 状态及授权由 Agent Helm Core 统一管理。ChatGPT 通过 Agent Helm 调用已授权的工具。
 
 ---
 

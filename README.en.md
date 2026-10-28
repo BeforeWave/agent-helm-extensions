@@ -116,6 +116,14 @@ For more configuration and usage details, see [Agent Helm](https://github.com/Be
 
 ---
 
+### Refresh ChatGPT Connector Tools After Upgrading
+
+This **MCP Server Integration** release changes Agent Helm Core's MCP Tool Schema, replacing `external_mcp_search_tools` with `external_mcp_list_tools`. **After upgrading and restarting Core, select Refresh Tools in your ChatGPT Custom Connector.**
+
+If a tool is missing or its parameters or contract no longer match, verify the Core version and refresh. See the [Agent Helm upgrade guide](https://github.com/BeforeWave/agent-helm#refresh-chatgpt-connector-tools-after-upgrading). Refreshing does not remove imported servers or revoke approvals.
+
+---
+
 ## 🛠️ Workflow & Core Features
 
 ### 1. Let ChatGPT Work Directly on Local Projects
@@ -174,6 +182,19 @@ The **Side Panel** is the main management interface. From the browser, you can d
 <p align="center">
   <img width="420" alt="Agent Helm Side Panel" src="https://github.com/user-attachments/assets/47f780f4-c2dd-4bcb-ae07-6f55fc8b58fe" />
 </p>
+
+---
+
+### 5. MCP Server Integration
+
+The Side Panel's **MCP Servers** section manages existing local MCP capabilities:
+
+* **My MCP Servers:** Inspect, enable or disable imported servers.
+* **Discover MCPs:** Manually scan servers configured in Codex and Claude.
+* **Configuration and authentication:** Provide required environment values, HTTP credentials and supported authentication.
+* **Status:** Inspect connection, authentication and failed discovery sources.
+
+Chrome and DSH share the same management component. Agent Helm Core owns runtime MCP state and approvals. ChatGPT invokes approved tools through Agent Helm.
 
 ---
 
