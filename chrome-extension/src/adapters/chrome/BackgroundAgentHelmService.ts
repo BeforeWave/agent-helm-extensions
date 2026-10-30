@@ -47,6 +47,7 @@ export class BackgroundAgentHelmService implements AgentHelmServiceAdapter {
 
   getSnapshot() { return this.request<ControlPlaneSnapshot>('getSnapshot') }
   getWorkDetail(workId: string) { return this.request<WorkHistoryDetail>('getWorkDetail', [workId]) }
+  openAgentSessionInTerminal(workId: string, nativeId: string) { return this.request('openAgentSessionInTerminal', [workId, nativeId]) }
   getWorkTimelineUpdates(workId: string, afterSequence: number) { return this.request<WorkTimelineUpdateBatch>('getWorkTimelineUpdates', [workId, afterSequence]) }
   releaseWorkTimeline(workId: string) { return this.request<void>('releaseWorkTimeline', [workId]) }
   getWorkHistoryPage(cursor?: string) { return this.request<WorkHistoryPage>('getWorkHistoryPage', cursor === undefined ? [] : [cursor]) }

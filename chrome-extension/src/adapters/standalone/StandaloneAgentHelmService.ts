@@ -63,6 +63,7 @@ export class StandaloneAgentHelmService implements AgentHelmServiceAdapter {
 
   getSnapshot(): Promise<ControlPlaneSnapshot> { return this.delegate.getSnapshot() }
   getWorkDetail(workId: string): Promise<WorkHistoryDetail> { return this.delegate.getWorkDetail(workId) }
+  openAgentSessionInTerminal(workId: string, nativeId: string): Promise<unknown> { return this.delegate.openAgentSessionInTerminal(workId, nativeId) }
   getWorkHistoryPage(cursor?: string): Promise<WorkHistoryPage> { return this.delegate.getWorkHistoryPage(cursor) }
   findWorkByConversation(pageContext: PageContext): Promise<WorkHistorySummary | null> { return this.delegate.findWorkByConversation(pageContext) }
   addWorkspace(): Promise<ControlPlaneSnapshot | null> { return this.delegate.addWorkspace() }

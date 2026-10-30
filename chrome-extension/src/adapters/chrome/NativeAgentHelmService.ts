@@ -136,9 +136,11 @@ export function projectNativeSnapshot(healthValue: unknown, summariesValue: unkn
     const id = stringValue(adapter.id) ?? 'agent'
     const name = stringValue(adapter.displayName) ?? id
     const message = stringValue(adapterHealth.error) ?? stringValue(adapterHealth.message)
+    const iconDataUrl = stringValue(adapter.iconDataUrl)
     return {
       id,
       name,
+      ...(iconDataUrl ? { iconDataUrl } : {}),
       enabled: booleanValue(adapter.delegationEnabled),
       configurable: true,
       runtimeState: runtimeStateFromAdapter(adapterHealth, coreRunning),
@@ -391,6 +393,17 @@ export class NativeAgentHelmService implements AgentHelmServiceAdapter {
       timelineError = cause instanceof Error ? cause.message : String(cause)
     }
 
+    type NativeDelegation = { subagentId: string; subagentSessionId: string; title?: string; status?: string; association: 'created' | 'attached' }
+    let agentSessions: NativeDelegation[] = []
+    let agentSessionsError: string | undefined
+    try {
+      const delegations = await this.transport.request<NativeDelegation[]>('getChatSessionDelegations', [workId])
+      agentSessions = delegations.filter((item) => item.subagentId === 'codex' && item.association === 'created')
+    } catch (cause) {
+      // A Terminal-handoff read failure must not make the entire Work Details unavailable.
+      agentSessionsError = cause instanceof Error ? cause.message : String(cause)
+    }
+
     let latestSubagentName: string | undefined
     for (let index = timeline.length - 1; index >= 0; index -= 1) {
       const item = timeline[index]
@@ -412,9 +425,13 @@ export class NativeAgentHelmService implements AgentHelmServiceAdapter {
       boundIntents: detail.boundIntents,
       chatUrls: detail.chatUrls,
       timeline,
+      agentSessions,
+      ...(agentSessionsError ? { agentSessionsError } : {}),
       ...(timelineError ? { timelineError } : {}),
     }
   }
+
+  async openAgentSessionInTerminal(workId: string, nativeId: string): Promise<unknown> { return await this.transport.request('openAgentSessionInTerminal', [workId, 'codex', nativeId]) }
 
   async addWorkspace(): Promise<ControlPlaneSnapshot | null> {
     const result = await this.transport.request<{ cancelled?: boolean }>('chooseAndRegisterWorkspace', [], null)

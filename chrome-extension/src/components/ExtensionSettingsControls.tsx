@@ -6,7 +6,7 @@ import { runtimeStateLabel, t } from '../locale'
 import type { CapabilityKey, DependencyName } from '../models/controlPlane'
 import extensionManifest from '../../package.json'
 import { agentHelmInstallerSourceForRelease, agentHelmMacosInstallerFilename, tunnelOnboardingSource, tunnelSetupCanSubmit, type TunnelSetupValues } from '../ui-contract'
-import { AgentIcon } from './Icons'
+import { AgentIdentityIcon } from '../__shared/ui-contract/agent-icon'
 import { ExternalMcpControls } from './ExternalMcpControls'
 
 import { Accordion } from '../components/Accordion'
@@ -179,11 +179,11 @@ export function CoreSettingControl({
   )
 }
 
-function AgentSummary({ agents }: { agents: Array<{ id: string; name: string }> }): React.JSX.Element {
+function AgentSummary({ agents }: { agents: Array<{ id: string; name: string; iconDataUrl?: string }> }): React.JSX.Element {
   return (
     <span className="popup-agent-summary" aria-hidden="true">
       {agents.map((agent) => (
-        <span key={agent.id} className="popup-agent-mark" title={agent.name}><AgentIcon /></span>
+        <span key={agent.id} className="popup-agent-mark" title={agent.name}><AgentIdentityIcon name={agent.name} iconDataUrl={agent.iconDataUrl} /></span>
       ))}
     </span>
   )
@@ -447,7 +447,7 @@ export function ExtensionSettingsControls({
           ) : (snapshot?.agents ?? []).map((agent) => (
             <div key={agent.id} className="popup-subrow">
               <span className="popup-subrow__name">
-                <span className="popup-agent-mark" aria-hidden="true"><AgentIcon /></span>
+                <span className="popup-agent-mark" aria-hidden="true"><AgentIdentityIcon name={agent.name} iconDataUrl={agent.iconDataUrl} /></span>
                 {agent.name}
               </span>
               <Switch

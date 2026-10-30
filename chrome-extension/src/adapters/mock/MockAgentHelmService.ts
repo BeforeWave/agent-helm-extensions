@@ -166,6 +166,8 @@ export class MockAgentHelmService implements AgentHelmServiceAdapter {
     return null
   }
 
+  async openAgentSessionInTerminal(_workId: string, _nativeId: string): Promise<unknown> { return { launched: true } }
+
   async getWorkDetail(workId: string): Promise<WorkHistoryDetail> {
     const detail = this.details.get(workId)
     if (!detail) throw new Error(`Unknown Work History record: ${workId}`)

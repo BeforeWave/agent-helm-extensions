@@ -85,6 +85,7 @@ export function deriveExtensionConnectionPresentation(
 export interface AgentState {
   id: string
   name: string
+  iconDataUrl?: string
   enabled: boolean
   configurable: boolean
   runtimeState: RuntimeState
@@ -187,6 +188,8 @@ export interface WorkHistoryDetail extends WorkHistorySummary {
   timeline: WorkTimelineItem[]
   intentScopes?: WorkIntentActivityScope[]
   timelineError?: string
+  agentSessionsError?: string
+  agentSessions?: import('../__shared/work-history-ui/index').AgentSessionRowData[]
   localDeepLink?: string | null
 }
 

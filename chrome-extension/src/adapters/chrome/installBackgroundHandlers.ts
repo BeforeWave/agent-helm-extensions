@@ -278,6 +278,7 @@ export function installBackgroundHandlers(service: AgentHelmServiceAdapter = cre
     switch (message.method) {
       case 'getSnapshot': return runSnapshotOperation(refreshAuthoritativeSnapshot)
       case 'getWorkDetail': return service.getWorkDetail(args[0] as string)
+      case 'openAgentSessionInTerminal': return service.openAgentSessionInTerminal(args[0] as string, args[1] as string)
       case 'getWorkTimelineUpdates': {
         if (!service.getWorkTimelineUpdates) throw new Error('Work timeline updates are unavailable')
         return service.getWorkTimelineUpdates(args[0] as string, args[1] as number)

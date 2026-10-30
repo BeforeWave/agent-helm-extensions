@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { IntentRow, WorkHistoryActivityTimeline, WorkHistoryIntentDetail, WorkHistoryIntentList, type WorkHistoryActivityRowData } from '../__shared/work-history-ui/index'
+import { AgentSessionList, IntentRow, WorkHistoryActivityTimeline, WorkHistoryIntentDetail, WorkHistoryIntentList, type WorkHistoryActivityRowData } from '../__shared/work-history-ui/index'
 import type { WorkHistoryPresentationLabel } from '../ui-contract'
 import { createWorkHistoryIntentActivityScopes, filterWorkHistoryTimeline, filterWorkHistoryTimelineByIntentScope, type WorkHistoryActivityFilter } from '../models/workHistory'
 import type { BrowserControlPlaneClient } from '../client/BrowserControlPlaneClient'
@@ -242,6 +242,11 @@ export function WorkDetail({
           {detail.boundIntents.map((entry, index) => <ContextCard key={`${entry.boundAt}:${index}`} intent={entry.intent} />)}
         </>}
       </WorkHistoryIntentList> : null}
+
+      {detail.agentSessionsError ? <div className="error-banner">{detail.agentSessionsError}</div> : null}
+      <AgentSessionList sessions={detail.agentSessions ?? []}
+        labels={{ title: t('sessionAgentSessions'), open: t('sessionOpenTerminal'), waiting: t('sessionApprovalTerminalHint'), pending: t('sessionOpeningTerminal') }}
+        onOpen={(nativeId) => client.openAgentSessionInTerminal(detail.id, nativeId).then(() => undefined)} />
 
       <ActivityTimeline key="conversation" timeline={detail.timeline} timelineError={detail.timelineError} />
     </div>

@@ -42,6 +42,7 @@ export interface AgentHelmServiceAdapter {
   subscribeWorkHistoryChanges?(listener: () => void): () => void
   getSnapshot(): Promise<ControlPlaneSnapshot>
   getWorkDetail(workId: string): Promise<WorkHistoryDetail>
+  openAgentSessionInTerminal(workId: string, nativeId: string): Promise<unknown>
   getWorkTimelineUpdates?(workId: string, afterSequence: number): Promise<WorkTimelineUpdateBatch>
   releaseWorkTimeline?(workId: string): Promise<void>
   subscribeWorkTimeline?(workId: string, afterSequence: number, onUpdates: (updates: WorkTimelineItem[]) => void, onError?: (error: Error) => void): () => void
