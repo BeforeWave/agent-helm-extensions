@@ -82,6 +82,7 @@ describe('native Chrome conversation binding', () => {
         requests.push({ method, params })
         if (method === 'bindChatUrl') return { id: 'session-native' }
         if (method === 'getChatSessionSummary') return nativeSummary
+        if (method === 'getChatSessionDelegations') return []
         if (method === 'getChatSessionTimeline') return []
         throw new Error('Unexpected native method: ' + method)
       },

@@ -109,6 +109,15 @@ describe('native Core snapshot projection', () => {
   })
 
 
+  it('projects the Core native Agent icon without changing any control-plane status', () => {
+    const iconDataUrl = 'data:image/png;base64,iVBORw0KGgo='
+    const snapshot = projectNativeSnapshot({
+      ...health,
+      adapters: health.adapters.map((adapter) => ({ ...adapter, iconDataUrl })),
+    }, summaries)
+    expect(snapshot.agents).toEqual([{ id: 'dsh', name: 'DSH', iconDataUrl, enabled: true, configurable: true, runtimeState: 'ready' }])
+  })
+
   it('locks Coding and Understand to Core Host authority even when persisted toggles were off', () => {
     const snapshot = projectNativeSnapshot({
       ...health,

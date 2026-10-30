@@ -495,6 +495,7 @@ describe('browser service helpers', () => {
     const delegated = new NativeAgentHelmService({
       async request(method: string) {
         if (method === 'getChatSessionSummary') return summary
+        if (method === 'getChatSessionDelegations') return []
         if (method === 'getChatSessionTimeline') return [{
           id: 'delegation:1',
           sessionId: 'work-runtime',
@@ -516,6 +517,7 @@ describe('browser service helpers', () => {
     const partial = new NativeAgentHelmService({
       async request(method: string) {
         if (method === 'getChatSessionSummary') return summary
+        if (method === 'getChatSessionDelegations') return []
         if (method === 'getChatSessionTimeline') throw new Error('timeline transport failed')
         throw new Error('Unexpected native method: ' + method)
       },

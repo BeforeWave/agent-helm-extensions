@@ -6,6 +6,7 @@ import { existsSync, readFileSync, statSync } from 'node:fs'
 import { randomBytes, randomUUID } from 'node:crypto'
 import { dirname, extname, join, normalize, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { hostCoreSocket, selectActiveCoreBridge } from './active-core.mjs'
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const packageName = 'agent-helm-chrome-extension'
@@ -225,9 +226,19 @@ try {
   if (options.daemonMode === 'managed') {
     managedCore = spawnManagedCore(coreCli, options.daemonSocket)
     await waitForProbe(bridge)
-  } else if (options.daemonMode === 'auto') {
-    const probe = await bridge.request('probe').catch(() => ({ connected: false }))
-    if (!probe?.connected) {
+  } else {
+    // The dev project environment uses an isolated socket. An already running
+    // Host Core often owns 3457 on another socket: attach to that Core instead
+    // of starting a duplicate and crashing with EADDRINUSE.
+    const selected = await selectActiveCoreBridge(bridge, {
+      explicitSocket: options.daemonSocket,
+      hostSocket: hostCoreSocket(process.env.AGENT_HELM_HOST_HOME),
+      createBridge: (socket) => new NativeHostBridge(coreCli, socket),
+    })
+    bridge = selected.bridge
+    if (selected.connected) {
+      process.stdout.write(`Agent Helm Chrome standalone: reusing Core at ${selected.socket}\n`)
+    } else if (options.daemonMode === 'auto') {
       managedCore = spawnManagedCore(coreCli, options.daemonSocket)
       await waitForProbe(bridge)
     }

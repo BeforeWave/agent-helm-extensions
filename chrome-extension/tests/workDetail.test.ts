@@ -21,6 +21,29 @@ describe('Work Detail activity filters', () => {
 })
 
 
+describe('Codex Terminal handoff in Work Details', () => {
+  it('renders a separate action for each Helm-created Codex thread and a waiting approval hint', async () => {
+    const React = await import('react')
+    const { renderToStaticMarkup } = await import('react-dom/server')
+    const detail: WorkHistoryDetail = {
+      id: 'owned-work', title: 'Two Codex sessions', lastActivityAt: '2026-09-12T00:01:00Z',
+      createdAt: '2026-09-12T00:00:00Z', eventCount: 2, chatCount: 1, delegationCount: 3,
+      boundIntents: [], chatUrls: [], timeline: [],
+      agentSessions: [
+        { subagentId: 'codex', subagentSessionId: 'thread-aaa', association: 'created', status: 'waiting', title: 'Approve build' },
+        { subagentId: 'codex', subagentSessionId: 'thread-bbb', association: 'created', status: 'idle', title: 'Run tests' },
+        { subagentId: 'codex', subagentSessionId: 'external-cli-thread', association: 'attached', status: 'idle' },
+      ],
+    }
+    const markup = renderToStaticMarkup(React.createElement(WorkDetail, { detail, pageContext: null, client: {} as never }))
+    expect(markup).toContain('thread-aaa')
+    expect(markup).toContain('thread-bbb')
+    expect(markup).not.toContain('external-cli-thread')
+    expect(markup).toMatch(/人工处理|Waiting for human input/)
+    expect((markup.match(/agent-session-row/g) ?? []).length).toBe(2)
+  })
+})
+
 describe('Work Detail availability states', () => {
   it('shows the real partial-data error instead of collapsing Agent / runtime to a generic unavailable state', async () => {
     const React = await import('react')

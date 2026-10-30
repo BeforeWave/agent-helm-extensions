@@ -302,8 +302,32 @@ describe('Chrome dependency guidance surfaces', () => {
       />,
     )
 
-    expect(html).toMatch(/popup-subrow__name[^>]*><span class="popup-agent-mark"[^>]*><svg[\s\S]*?<\/svg><\/span>DSH<\/span>/)
-    expect(html).not.toContain('>DSH</span>DSH')
+    expect(html).toMatch(/popup-subrow__name[^>]*><span class="popup-agent-mark"[^>]*><span[^>]*>DSH<\/span><\/span>DSH<\/span>/)
+    expect(html).not.toMatch(/<span class="popup-agent-mark"[^>]*><svg/)
+  })
+
+  it('shows the macOS app icon when Core supplies native PNG data and falls back for CLI-only agents', () => {
+    const value = snapshot()
+    const png = 'data:image/png;base64,iVBORw0KGgo='
+    value.agents = [
+      { id: 'codex', name: 'Codex', iconDataUrl: png, enabled: true, configurable: true, runtimeState: 'ready' },
+      { id: 'dsh', name: 'DSH', enabled: true, configurable: true, runtimeState: 'ready' },
+    ]
+    const html = renderToStaticMarkup(
+      <ExtensionSettingsControls snapshot={value} pending={null} includeCoreRow={false} sectionOrder={['agents']} agentsInitiallyExpanded {...callbacks} />,
+    )
+    expect(html).toContain(`src="${png}"`)
+    expect(html).toContain('>DSH</span>')
+    expect(html).not.toMatch(/<span class="popup-agent-mark"[^>]*><svg/)
+    expect(html).toMatch(/border:1px solid rgba\(128,128,128,\.28\)/)
+    expect(html).toContain('background:transparent')
+    const nativeIcon = html.match(/<img[^>]*>/)?.[0]
+    expect(nativeIcon).toBeDefined()
+    expect(nativeIcon).not.toMatch(/border:|background:/)
+    const css = readFileSync(new URL('../src/app/styles.css', import.meta.url), 'utf8')
+    const shell = css.match(/\.popup-agent-mark \{([^}]+)\}/)?.[1]
+    expect(shell).toBeDefined()
+    expect(shell).not.toMatch(/\bborder\s*:|\bbackground\s*:/)
   })
 
   it('allows an empty Side Panel Agents section to open and explain that no local agent is connected', () => {

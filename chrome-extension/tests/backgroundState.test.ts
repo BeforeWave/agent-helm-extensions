@@ -55,6 +55,7 @@ function createMutableService(initial = makeSnapshot()) {
   const service: AgentHelmServiceAdapter = {
     async getSnapshot() { return structuredClone(snapshot) },
     async getWorkDetail(workId) { return detail(workId) },
+    async openAgentSessionInTerminal() { return { launched: true } },
     async getWorkTimelineUpdates(_workId, afterSequence) { return { cursorSequence: afterSequence, updates: [] } },
     async releaseWorkTimeline() {},
     async getWorkHistoryPage() { return { works: structuredClone(snapshot.works) } },
